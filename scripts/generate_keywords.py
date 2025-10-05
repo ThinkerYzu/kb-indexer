@@ -185,6 +185,10 @@ Guidelines:
 - Include both specific terms and general concepts
 - Use lowercase for keywords unless they are proper nouns or abbreviations
 - If the document has a title header (# Title), use it; otherwise create one
+- CRITICAL: Categories MUST only contain keywords that are EXACTLY as they appear in the main "keywords" list
+- Categories organize existing keywords only - do NOT add new keywords in categories
+- Every keyword in categories must have an exact match in the keywords array (same spelling, same capitalization)
+- Example: If keywords contains "api integration", you cannot use just "api" in categories
 
 Return ONLY the JSON object, no other text or markdown formatting.
 
