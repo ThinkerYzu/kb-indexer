@@ -283,11 +283,13 @@ Automated script to synchronize the `knowledge-base/` directory with the kb-inde
 **Implementation Details:**
 
 1. **AI-Powered Keyword Generation:**
-   - Uses Ollama by default (local, free, privacy-preserving)
+   - **Primary backend: Claude Code CLI** (highest quality, uses `claude -p --allowed-tools Read`)
+   - Fallback to Ollama (local, free, privacy-preserving)
    - Fallback to Gemini (cloud, requires API key)
    - Extracts 10-30 keywords from document content
    - Generates title, summary, and categorized keywords
-   - Supports custom models via `--model` flag
+   - Enforces keyword-category consistency (categories only contain keywords from main list)
+   - Supports custom models via `--model` flag for Ollama/Gemini
 
 2. **Intelligent Keyword Management:**
    - Generates keywords for documents without `.keywords.json` files
@@ -319,21 +321,25 @@ Automated script to synchronize the `knowledge-base/` directory with the kb-inde
 - ✅ Correctly detects modified documents in database
 - ✅ Skips unchanged documents
 - ✅ Handles timezone conversion properly
+- ✅ Works with Claude Code CLI (primary, best quality)
 - ✅ Works with Ollama (llama3.2:3b tested)
 - ✅ Works with Gemini (gemini-2.0-flash-exp tested)
+- ✅ Enforces keyword-category consistency
 
 **Benefits Achieved:**
 - **Zero manual keyword creation** - AI generates all keywords automatically
+- **Superior keyword quality** - Claude Code produces comprehensive, accurate keywords
 - **Always up-to-date** - Keywords regenerate when documents change
 - **One-command workflow** - `./scripts/sync_kb.sh` handles everything
-- **Local-first** - Uses Ollama by default (no API costs, full privacy)
 - **Intelligent categorization** - AI categorizes keywords by type (primary, concepts, tools, abbreviations)
+- **Consistent metadata** - Categories only contain keywords from main list (enforced by prompt)
 - Safe idempotent operation (can run multiple times)
 - Clear reporting of all actions taken
 
 **Dependencies:**
-- `ollama>=0.1.0` (optional, for local keyword generation - recommended)
-- `google-genai>=0.1.0` (optional, for cloud keyword generation)
+- `claude` CLI (recommended, for highest quality keyword generation)
+- `ollama>=0.1.0` (optional, for local keyword generation fallback)
+- `google-genai>=0.1.0` (optional, for cloud keyword generation fallback)
 - `python-dotenv>=1.0.0` (optional, for Gemini API key management)
 
 ### Other Future Enhancements

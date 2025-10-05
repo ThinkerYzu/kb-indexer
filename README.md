@@ -10,7 +10,8 @@ A pure data tool for indexing and searching documents with keywords and semantic
 
 ## Features
 
-- **AI-Powered Keyword Generation** - Automatic keyword extraction using local LLM (Ollama) or cloud (Gemini)
+- **AI-Powered Keyword Generation** - Automatic keyword extraction using Claude Code CLI (primary), with Ollama/Gemini fallback
+- **Superior Quality** - Claude Code produces comprehensive, well-categorized keywords with enforced consistency
 - **Intelligent Sync** - Automated detection of new/modified documents with keyword regeneration
 - **Document Indexing** - Store markdown documents with titles, summaries, and keywords
 - **Keyword Management** - Normalized keyword storage with optional categorization
@@ -61,11 +62,13 @@ chmod +x kbindex.py
 
 ```bash
 # Sync entire knowledge-base directory (recommended - uses AI to generate keywords)
-# Automatically generates/updates .keywords.json files using Ollama (local AI)
+# Automatically generates/updates .keywords.json files using Claude Code CLI
 ./scripts/sync_kb.sh
 
 # Generate keywords for a single document using AI
-./scripts/generate_keywords.py ../knowledge-base/my-doc.md
+./scripts/generate_keywords.py ../knowledge-base/my-doc.md  # Uses Claude Code by default
+./scripts/generate_keywords.py ../knowledge-base/my-doc.md --backend ollama  # Force Ollama
+./scripts/generate_keywords.py ../knowledge-base/my-doc.md --backend gemini  # Force Gemini
 
 # Add single document (requires .keywords.json file)
 ./kbindex.py add ../knowledge-base/my-doc.md
