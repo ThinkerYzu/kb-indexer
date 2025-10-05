@@ -58,6 +58,9 @@ chmod +x kbindex.py
 ### Indexing Documents
 
 ```bash
+# Sync entire knowledge-base directory (recommended)
+./scripts/sync_kb.sh
+
 # Add single document
 ./kbindex.py add ../knowledge-base/my-doc.md
 
@@ -67,10 +70,10 @@ chmod +x kbindex.py
 # Remove document from index
 ./kbindex.py remove ../knowledge-base/my-doc.md
 
-# List all indexed documents
+# List all indexed documents (timestamps shown in local time)
 ./kbindex.py list-docs
 
-# Show document details
+# Show document details (timestamps shown in local time)
 ./kbindex.py show ../knowledge-base/my-doc.md
 ```
 
@@ -224,14 +227,18 @@ All output includes rich context for AI decision-making (similarity types, relev
 kb-indexer/
 ├── README.md                  # This file
 ├── DESIGN.md                  # Design documentation
+├── IMPLEMENTATION.md          # Implementation details and completed features
 ├── schema.sql                 # Database schema
-├── requirements.txt           # Python dependencies (none currently)
+├── requirements.txt           # Python dependencies (optional: ollama, google-genai)
 ├── kbindex.py                 # Main CLI entry point
 ├── kb_indexer/
 │   ├── __init__.py
 │   ├── database.py           # SQLite database operations
 │   ├── parser.py             # JSON/markdown parsing
-│   └── search.py             # Query and search operations
+│   ├── search.py             # Query and search operations
+│   └── context_matcher.py    # LLM-based context matching (Ollama/Gemini)
+├── scripts/
+│   └── sync_kb.sh            # Sync knowledge-base directory to database
 ├── examples/
 │   ├── sample.keywords.json
 │   └── similarities.json

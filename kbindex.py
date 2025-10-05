@@ -10,6 +10,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Optional
+from datetime import datetime, timezone
 
 from kb_indexer import Database, KeywordParser, MarkdownParser, SearchEngine
 from kb_indexer.parser import SimilarityParser
@@ -26,6 +27,24 @@ class CLI:
         """
         self.db_path = db_path
         self.db: Optional[Database] = None
+
+    @staticmethod
+    def utc_to_local(utc_time_str: str) -> str:
+        """Convert UTC timestamp string to local time string.
+
+        Args:
+            utc_time_str: UTC timestamp in format 'YYYY-MM-DD HH:MM:SS'
+
+        Returns:
+            Local time string in same format
+        """
+        try:
+            dt_utc = datetime.strptime(utc_time_str, '%Y-%m-%d %H:%M:%S')
+            dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+            dt_local = dt_utc.astimezone()
+            return dt_local.strftime('%Y-%m-%d %H:%M:%S')
+        except:
+            return utc_time_str  # Return original if conversion fails
 
     def _open_db(self):
         """Open database connection."""
@@ -120,16 +139,16 @@ class CLI:
                 pass
 
         success = self.db.update_document(
-            filepath=filepath,
+            filepath=kw_data["filepath"],
             title=title,
             summary=kw_data.get("summary"),
         )
 
         if not success:
-            print(f"Document not found: {filepath}", file=sys.stderr)
+            print(f"Document not found: {kw_data['filepath']}", file=sys.stderr)
             return 1
 
-        print(f"Updated document: {filepath}")
+        print(f"Updated document: {kw_data['filepath']}")
         return 0
 
     def cmd_remove(self, args):
@@ -150,6 +169,13 @@ class CLI:
         self._open_db()
 
         docs = self.db.list_documents()
+
+        # Convert UTC timestamps to local time
+        for doc in docs:
+            if 'created_at' in doc:
+                doc['created_at'] = self.utc_to_local(doc['created_at'])
+            if 'updated_at' in doc:
+                doc['updated_at'] = self.utc_to_local(doc['updated_at'])
 
         if args.format == "json":
             print(json.dumps(docs, indent=2))
@@ -180,11 +206,15 @@ class CLI:
         if args.format == "json":
             print(json.dumps(details, indent=2))
         else:
+            # Convert UTC timestamps to local time
+            created_local = self.utc_to_local(details['created_at'])
+            updated_local = self.utc_to_local(details['updated_at'])
+
             print(f"Filepath: {details['filepath']}")
             print(f"Title: {details.get('title') or 'N/A'}")
             print(f"Summary: {details.get('summary') or 'N/A'}")
-            print(f"Created: {details['created_at']}")
-            print(f"Updated: {details['updated_at']}")
+            print(f"Created: {created_local}")
+            print(f"Updated: {updated_local}")
             print("\nKeywords:")
             for kw in details["keywords"]:
                 category = f" ({kw['category']})" if kw.get("category") else ""

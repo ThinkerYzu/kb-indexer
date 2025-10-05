@@ -86,6 +86,13 @@ The Knowledge Base Indexer (kbindex) is a pure data tool for indexing documents 
    - Fixed with separate UPDATE vs INSERT logic
    - Location: database.py:457-489
 
+3. **Timezone handling for document updates**
+   - Database stores UTC timestamps, file system uses local time
+   - Fixed sync script to parse DB timestamps as UTC before comparison
+   - Fixed `update` command to use `kw_data["filepath"]` (basename) instead of full path
+   - Added `utc_to_local()` converter for human-readable output
+   - Location: scripts/sync_kb.sh, kbindex.py:170-178, 209-211
+
 ### Design Decisions Validated
 
 - ✅ SQLite provides excellent performance for read-heavy workloads
@@ -256,6 +263,50 @@ AI-powered filtering of similarity results based on user-provided context. Uses 
 - **No API costs** with Ollama backend
 - **Privacy-preserving** with local models
 
+### Phase 7: Automated Synchronization ✅ COMPLETED
+
+**Status:** Fully implemented and tested
+
+**Overview:**
+Automated script to synchronize the `knowledge-base/` directory with the kb-indexer database, intelligently detecting new documents and updates.
+
+**Key Features:**
+- **scripts/sync_kb.sh**: Bash script for incremental synchronization
+- Detects new documents (not in database)
+- Detects modified documents (file mtime > database updated_at)
+- Skips unchanged documents
+- Reports comprehensive statistics
+
+**Implementation Details:**
+
+1. **File Modification Detection:**
+   - Compares file system modification time with database `updated_at` timestamp
+   - Handles timezone conversion (DB stores UTC, file system uses local)
+   - Uses Python inline script for UTC parsing
+
+2. **Smart Updates:**
+   - Only processes `.md` files with corresponding `.keywords.json` files
+   - Skips documents without keywords (reports as "SKIPPED")
+   - Uses `add` command for new documents
+   - Uses `update` command for modified documents
+
+3. **User Feedback:**
+   - Clear status indicators: ➕ ADD, 🔄 UPDATE, ✓ UNCHANGED, ⚠️ SKIP
+   - Final statistics summary
+   - Environment variable support for custom KB location
+
+**Testing Results:**
+- ✅ Correctly detects new documents
+- ✅ Correctly detects modified documents (via touch test)
+- ✅ Skips unchanged documents
+- ✅ Handles timezone conversion properly
+
+**Benefits Achieved:**
+- One-command synchronization of entire knowledge base
+- No manual tracking of which files changed
+- Safe idempotent operation (can run multiple times)
+- Clear reporting of all actions taken
+
 ### Other Future Enhancements
 
 Potential features for later development:
@@ -265,8 +316,7 @@ Potential features for later development:
 4. Version tracking for documents
 5. Multi-language keyword support
 6. REST API interface
-7. Bulk indexing from directory scan
-8. Context comparison caching for performance
+7. Context comparison caching for performance
 
 ## Conclusion
 
