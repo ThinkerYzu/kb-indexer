@@ -10,12 +10,14 @@ A pure data tool for indexing and searching documents with keywords and semantic
 
 ## Features
 
+- **AI-Powered Keyword Generation** - Automatic keyword extraction using local LLM (Ollama) or cloud (Gemini)
+- **Intelligent Sync** - Automated detection of new/modified documents with keyword regeneration
 - **Document Indexing** - Store markdown documents with titles, summaries, and keywords
 - **Keyword Management** - Normalized keyword storage with optional categorization
 - **Semantic Relationships** - Define similarities between keywords with context and scoring
 - **AI-Friendly Output** - JSON format with rich metadata for AI decision-making
 - **Simple CLI** - Easy-to-use command-line interface
-- **No Dependencies** - Pure Python with stdlib only
+- **Minimal Dependencies** - Core functionality uses stdlib only; optional LLM backends for keyword generation
 
 ## Quick Start
 
@@ -58,10 +60,14 @@ chmod +x kbindex.py
 ### Indexing Documents
 
 ```bash
-# Sync entire knowledge-base directory (recommended)
+# Sync entire knowledge-base directory (recommended - uses AI to generate keywords)
+# Automatically generates/updates .keywords.json files using Ollama (local AI)
 ./scripts/sync_kb.sh
 
-# Add single document
+# Generate keywords for a single document using AI
+./scripts/generate_keywords.py ../knowledge-base/my-doc.md
+
+# Add single document (requires .keywords.json file)
 ./kbindex.py add ../knowledge-base/my-doc.md
 
 # Update existing document
@@ -238,7 +244,8 @@ kb-indexer/
 │   ├── search.py             # Query and search operations
 │   └── context_matcher.py    # LLM-based context matching (Ollama/Gemini)
 ├── scripts/
-│   └── sync_kb.sh            # Sync knowledge-base directory to database
+│   ├── sync_kb.sh            # Sync knowledge-base with AI keyword generation
+│   └── generate_keywords.py  # AI-powered keyword extraction
 ├── examples/
 │   ├── sample.keywords.json
 │   └── similarities.json

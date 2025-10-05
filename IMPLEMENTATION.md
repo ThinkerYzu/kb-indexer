@@ -263,15 +263,18 @@ AI-powered filtering of similarity results based on user-provided context. Uses 
 - **No API costs** with Ollama backend
 - **Privacy-preserving** with local models
 
-### Phase 7: Automated Synchronization ✅ COMPLETED
+### Phase 7: Automated Synchronization with AI Keyword Generation ✅ COMPLETED
 
 **Status:** Fully implemented and tested
 
 **Overview:**
-Automated script to synchronize the `knowledge-base/` directory with the kb-indexer database, intelligently detecting new documents and updates.
+Automated script to synchronize the `knowledge-base/` directory with the kb-indexer database, with integrated AI-powered keyword generation for new and modified documents.
 
 **Key Features:**
-- **scripts/sync_kb.sh**: Bash script for incremental synchronization
+- **scripts/sync_kb.sh**: Bash script for intelligent synchronization
+- **scripts/generate_keywords.py**: Python script for AI-powered keyword extraction
+- Automatically generates `.keywords.json` for documents without keywords
+- Automatically regenerates keywords when documents are modified
 - Detects new documents (not in database)
 - Detects modified documents (file mtime > database updated_at)
 - Skips unchanged documents
@@ -279,33 +282,59 @@ Automated script to synchronize the `knowledge-base/` directory with the kb-inde
 
 **Implementation Details:**
 
-1. **File Modification Detection:**
+1. **AI-Powered Keyword Generation:**
+   - Uses Ollama by default (local, free, privacy-preserving)
+   - Fallback to Gemini (cloud, requires API key)
+   - Extracts 10-30 keywords from document content
+   - Generates title, summary, and categorized keywords
+   - Supports custom models via `--model` flag
+
+2. **Intelligent Keyword Management:**
+   - Generates keywords for documents without `.keywords.json` files
+   - Regenerates keywords when markdown is newer than keywords file
+   - Compares markdown mtime vs keywords mtime
+   - LLM analyzes full document content for accurate extraction
+
+3. **File Modification Detection:**
    - Compares file system modification time with database `updated_at` timestamp
    - Handles timezone conversion (DB stores UTC, file system uses local)
    - Uses Python inline script for UTC parsing
+   - Tracks both document and keywords file timestamps
 
-2. **Smart Updates:**
-   - Only processes `.md` files with corresponding `.keywords.json` files
-   - Skips documents without keywords (reports as "SKIPPED")
+4. **Smart Updates:**
+   - Processes all `.md` files in knowledge-base/
+   - Auto-generates missing keywords before database sync
    - Uses `add` command for new documents
    - Uses `update` command for modified documents
 
-3. **User Feedback:**
-   - Clear status indicators: ➕ ADD, 🔄 UPDATE, ✓ UNCHANGED, ⚠️ SKIP
-   - Final statistics summary
+5. **User Feedback:**
+   - Clear status indicators: 🤖 GENERATE, 🤖 REGENERATE, ➕ ADD, 🔄 UPDATE, ✓ UNCHANGED, ❌ FAILED
+   - Final statistics summary (generated, added, updated, unchanged, skipped)
    - Environment variable support for custom KB location
 
 **Testing Results:**
-- ✅ Correctly detects new documents
-- ✅ Correctly detects modified documents (via touch test)
+- ✅ Correctly generates keywords for new documents
+- ✅ Correctly regenerates keywords for modified documents
+- ✅ Correctly detects new documents in database
+- ✅ Correctly detects modified documents in database
 - ✅ Skips unchanged documents
 - ✅ Handles timezone conversion properly
+- ✅ Works with Ollama (llama3.2:3b tested)
+- ✅ Works with Gemini (gemini-2.0-flash-exp tested)
 
 **Benefits Achieved:**
-- One-command synchronization of entire knowledge base
-- No manual tracking of which files changed
+- **Zero manual keyword creation** - AI generates all keywords automatically
+- **Always up-to-date** - Keywords regenerate when documents change
+- **One-command workflow** - `./scripts/sync_kb.sh` handles everything
+- **Local-first** - Uses Ollama by default (no API costs, full privacy)
+- **Intelligent categorization** - AI categorizes keywords by type (primary, concepts, tools, abbreviations)
 - Safe idempotent operation (can run multiple times)
 - Clear reporting of all actions taken
+
+**Dependencies:**
+- `ollama>=0.1.0` (optional, for local keyword generation - recommended)
+- `google-genai>=0.1.0` (optional, for cloud keyword generation)
+- `python-dotenv>=1.0.0` (optional, for Gemini API key management)
 
 ### Other Future Enhancements
 
