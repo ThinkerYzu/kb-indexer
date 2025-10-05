@@ -8,6 +8,7 @@ Uses Ollama by default (local, free) with fallback to Gemini (cloud, API key req
 import json
 import sys
 import os
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -160,13 +161,68 @@ JSON OUTPUT:"""
     return json.loads(response_text)
 
 
+def generate_keywords_with_claude(content: str, md_filepath: str) -> Dict:
+    """Generate keywords using Claude Code CLI."""
+    basename = os.path.basename(md_filepath)
+
+    prompt = f"""Extract keywords and metadata from this markdown document and return ONLY a valid JSON object with this structure:
+
+{{
+  "filepath": "{basename}",
+  "title": "Document title (extract from content or create descriptive title in Title Case)",
+  "summary": "2-3 sentence summary of the document's main points",
+  "keywords": ["keyword1", "keyword2", ...],
+  "categories": {{
+    "primary": ["main topics"],
+    "concepts": ["key concepts and ideas"],
+    "tools": ["tools, libraries, frameworks mentioned"],
+    "abbreviations": ["abbreviations and acronyms"]
+  }}
+}}
+
+Guidelines:
+- Extract 10-30 keywords covering main topics, concepts, tools, technologies
+- Include both specific terms and general concepts
+- Use lowercase for keywords unless they are proper nouns or abbreviations
+- If the document has a title header (# Title), use it; otherwise create one
+
+Return ONLY the JSON object, no other text or markdown formatting.
+
+Document content:
+{content}"""
+
+    # Run claude command with prompt via stdin
+    # Restrict tools to only Read (no file modifications, no bash commands)
+    result = subprocess.run(
+        ['claude', '-p', '--allowed-tools', 'Read'],
+        input=prompt,
+        capture_output=True,
+        text=True,
+        timeout=120
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(f"Claude command failed: {result.stderr}")
+
+    response_text = result.stdout.strip()
+
+    # Remove markdown code blocks if present
+    if response_text.startswith('```'):
+        lines = response_text.split('\n')
+        response_text = '\n'.join(lines[1:-1])
+        if response_text.startswith('json'):
+            response_text = response_text[4:].strip()
+
+    return json.loads(response_text)
+
+
 def generate_keywords(md_filepath: str, backend: str = "auto", model: Optional[str] = None) -> Dict:
     """
     Generate keywords for a markdown document.
 
     Args:
         md_filepath: Path to markdown file
-        backend: "auto", "ollama", or "gemini"
+        backend: "auto", "claude", "ollama", or "gemini"
         model: Optional model name override
 
     Returns:
@@ -177,15 +233,20 @@ def generate_keywords(md_filepath: str, backend: str = "auto", model: Optional[s
 
     # Auto-select backend
     if backend == "auto":
-        if OLLAMA_AVAILABLE:
+        # Prefer Claude Code if available
+        if subprocess.run(['which', 'claude'], capture_output=True).returncode == 0:
+            backend = "claude"
+        elif OLLAMA_AVAILABLE:
             backend = "ollama"
         elif GEMINI_AVAILABLE:
             backend = "gemini"
         else:
-            raise RuntimeError("No LLM backend available. Install ollama or google-genai.")
+            raise RuntimeError("No LLM backend available. Install claude, ollama, or google-genai.")
 
     # Generate keywords
-    if backend == "ollama":
+    if backend == "claude":
+        keywords_data = generate_keywords_with_claude(content, md_filepath)
+    elif backend == "ollama":
         if not OLLAMA_AVAILABLE:
             raise RuntimeError("Ollama not available. Install: pip install ollama")
         keywords_data = generate_keywords_with_ollama(
