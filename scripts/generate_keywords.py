@@ -34,12 +34,14 @@ def read_markdown(filepath: str) -> str:
 
 def generate_keywords_with_ollama(content: str, model: str = "llama3.2:3b") -> Dict:
     """Generate keywords using Ollama."""
-    prompt = f"""Analyze the following markdown document and generate a JSON object with metadata.
+    # Limit content length to avoid context issues (first 8000 chars should be enough)
+    content_preview = content[:8000] if len(content) > 8000 else content
+    if len(content) > 8000:
+        content_preview += "\n\n[... document truncated for analysis ...]"
 
-Document content:
-{content}
+    prompt = f"""You are a metadata extraction assistant. Your task is to analyze a markdown document and extract keywords and metadata.
 
-Generate a JSON object with this exact structure:
+TASK: Generate a JSON object with this exact structure:
 {{
   "filepath": "filename.md",
   "title": "Document title (extract from content or create descriptive title)",
@@ -53,7 +55,7 @@ Generate a JSON object with this exact structure:
   }}
 }}
 
-Guidelines:
+GUIDELINES:
 - Extract 10-30 keywords covering main topics, concepts, tools, technologies
 - Include both specific terms and general concepts
 - Include abbreviations separately in the abbreviations category
@@ -62,7 +64,12 @@ Guidelines:
 - The title should be clear, descriptive, and in Title Case (capitalize major words)
 - If the document has a title header (# Title), use it; otherwise create one
 
-Return ONLY the JSON object, no other text."""
+IMPORTANT: Return ONLY a valid JSON object. Do not include any code, explanations, or other text.
+
+DOCUMENT TO ANALYZE:
+{content_preview}
+
+JSON OUTPUT:"""
 
     response = ollama.chat(
         model=model,
@@ -84,7 +91,14 @@ Return ONLY the JSON object, no other text."""
         if response_text.startswith('json'):
             response_text = response_text[4:].strip()
 
-    return json.loads(response_text)
+    try:
+        return json.loads(response_text)
+    except json.JSONDecodeError as e:
+        # Debug: print the response to stderr
+        print(f"DEBUG: LLM response length: {len(response_text)}", file=sys.stderr)
+        print(f"DEBUG: First 500 chars: {response_text[:500]}", file=sys.stderr)
+        print(f"DEBUG: Last 500 chars: {response_text[-500:]}", file=sys.stderr)
+        raise
 
 
 def generate_keywords_with_gemini(content: str, model: str = "gemini-2.0-flash-exp") -> Dict:
@@ -92,12 +106,14 @@ def generate_keywords_with_gemini(content: str, model: str = "gemini-2.0-flash-e
     load_dotenv()
     client = genai.Client()
 
-    prompt = f"""Analyze the following markdown document and generate a JSON object with metadata.
+    # Limit content length to avoid context issues (first 8000 chars should be enough)
+    content_preview = content[:8000] if len(content) > 8000 else content
+    if len(content) > 8000:
+        content_preview += "\n\n[... document truncated for analysis ...]"
 
-Document content:
-{content}
+    prompt = f"""You are a metadata extraction assistant. Your task is to analyze a markdown document and extract keywords and metadata.
 
-Generate a JSON object with this exact structure:
+TASK: Generate a JSON object with this exact structure:
 {{
   "filepath": "filename.md",
   "title": "Document title (extract from content or create descriptive title)",
@@ -111,7 +127,7 @@ Generate a JSON object with this exact structure:
   }}
 }}
 
-Guidelines:
+GUIDELINES:
 - Extract 10-30 keywords covering main topics, concepts, tools, technologies
 - Include both specific terms and general concepts
 - Include abbreviations separately in the abbreviations category
@@ -120,7 +136,12 @@ Guidelines:
 - The title should be clear, descriptive, and in Title Case (capitalize major words)
 - If the document has a title header (# Title), use it; otherwise create one
 
-Return ONLY the JSON object, no other text."""
+IMPORTANT: Return ONLY a valid JSON object. Do not include any code, explanations, or other text.
+
+DOCUMENT TO ANALYZE:
+{content_preview}
+
+JSON OUTPUT:"""
 
     response = client.models.generate_content(
         model=model,
