@@ -37,7 +37,7 @@ if [ ! -x "$KEYGEN" ]; then
     exit 1
 fi
 
-# Get list of currently indexed documents with their updated_at timestamps
+# Get list of currently indexed documents with their updated_at timestamps (in local time)
 echo "Fetching currently indexed documents..."
 INDEXED_DATA=$("$KBINDEX" list-docs --format json 2>/dev/null)
 
@@ -53,74 +53,80 @@ find "$KB_DIR" -type f -name "*.md" | while read -r MD_FILE; do
     # Get just the filename (basename)
     FILENAME=$(basename "$MD_FILE")
 
-    # Check for corresponding keywords file
-    KEYWORDS_FILE="${MD_FILE%.md}.keywords.json"
-
     # Get markdown file modification time
     MD_MTIME=$(stat -c %Y "$MD_FILE" 2>/dev/null || stat -f %m "$MD_FILE" 2>/dev/null)
 
-    # Check if keywords file exists
-    if [ ! -f "$KEYWORDS_FILE" ]; then
-        # Generate new keywords file
-        echo "🤖 GENERATE: $FILENAME (missing keywords)"
-        if "$KEYGEN" "$MD_FILE" >/dev/null 2>&1; then
-            GENERATED=$((GENERATED + 1))
-        else
-            echo "   ❌ Failed to generate keywords for $FILENAME"
-            SKIPPED=$((SKIPPED + 1))
-            continue
-        fi
-    else
-        # Check if markdown is newer than keywords file
-        KW_MTIME=$(stat -c %Y "$KEYWORDS_FILE" 2>/dev/null || stat -f %m "$KEYWORDS_FILE" 2>/dev/null)
-
-        if [ "$MD_MTIME" -gt "$KW_MTIME" ]; then
-            # Markdown changed, regenerate keywords
-            echo "🤖 REGENERATE: $FILENAME (document modified)"
-            if "$KEYGEN" "$MD_FILE" >/dev/null 2>&1; then
-                GENERATED=$((GENERATED + 1))
-            else
-                echo "   ❌ Failed to regenerate keywords for $FILENAME"
-                SKIPPED=$((SKIPPED + 1))
-                continue
-            fi
-        fi
-    fi
-
-    # Now process the document for database sync
-    # Use the markdown file mtime for comparison (not keywords file)
-    FILE_MTIME="$MD_MTIME"
-
     # Check if document is already indexed and get its updated_at
-    # The database stores UTC time, so we need to parse it as UTC
+    # list-docs returns local time, so parse it as local time
     DB_UPDATED=$(echo "$INDEXED_DATA" | python3 -c "
 import json, sys, datetime
 try:
     data = json.load(sys.stdin)
     for doc in data:
         if doc['filepath'] == '$FILENAME':
-            # Parse updated_at timestamp as UTC (format: 2025-10-05 16:09:42)
+            # Parse updated_at timestamp as local time (format: 2025-10-05 16:09:42)
             dt = datetime.datetime.strptime(doc['updated_at'], '%Y-%m-%d %H:%M:%S')
-            # Treat it as UTC and convert to local timestamp
-            dt_utc = dt.replace(tzinfo=datetime.timezone.utc)
-            print(int(dt_utc.timestamp()))
+            print(int(dt.timestamp()))
             break
 except:
     pass
 " 2>/dev/null)
-    
+
+    # Check for corresponding keywords file
+    KEYWORDS_FILE="${MD_FILE%.md}.keywords.json"
+
+    # Determine what action to take
     if [ -z "$DB_UPDATED" ]; then
-        # Document doesn't exist - add it
+        # Document doesn't exist in database
+        # Check if keywords file exists, generate if needed
+        if [ ! -f "$KEYWORDS_FILE" ]; then
+            echo "🤖 GENERATE: $FILENAME (missing keywords)"
+            if ! "$KEYGEN" "$MD_FILE" >/dev/null 2>&1; then
+                echo "   ❌ Failed to generate keywords for $FILENAME"
+                SKIPPED=$((SKIPPED + 1))
+                continue
+            fi
+            GENERATED=$((GENERATED + 1))
+        fi
+
+        # Add to database
         echo "➕ ADD: $FILENAME"
         "$KBINDEX" add "$MD_FILE" --keywords "$KEYWORDS_FILE"
         ADDED=$((ADDED + 1))
-    elif [ "$FILE_MTIME" -gt "$DB_UPDATED" ]; then
-        # File is newer than database - update it
+
+    elif [ "$MD_MTIME" -gt "$DB_UPDATED" ]; then
+        # Markdown file is newer than database - need to update
+
+        # Check if keywords file exists and if it needs regeneration
+        if [ ! -f "$KEYWORDS_FILE" ]; then
+            echo "🤖 GENERATE: $FILENAME (missing keywords)"
+            if ! "$KEYGEN" "$MD_FILE" >/dev/null 2>&1; then
+                echo "   ❌ Failed to generate keywords for $FILENAME"
+                SKIPPED=$((SKIPPED + 1))
+                continue
+            fi
+            GENERATED=$((GENERATED + 1))
+        else
+            # Check if markdown is newer than keywords file
+            KW_MTIME=$(stat -c %Y "$KEYWORDS_FILE" 2>/dev/null || stat -f %m "$KEYWORDS_FILE" 2>/dev/null)
+            if [ "$MD_MTIME" -gt "$KW_MTIME" ]; then
+                echo "🤖 REGENERATE: $FILENAME (document modified)"
+                if ! "$KEYGEN" "$MD_FILE" >/dev/null 2>&1; then
+                    echo "   ❌ Failed to regenerate keywords for $FILENAME"
+                    SKIPPED=$((SKIPPED + 1))
+                    continue
+                fi
+                GENERATED=$((GENERATED + 1))
+            fi
+        fi
+
+        # Update database
         echo "🔄 UPDATE: $FILENAME (file modified)"
         "$KBINDEX" update "$MD_FILE" --keywords "$KEYWORDS_FILE"
         UPDATED=$((UPDATED + 1))
+
     else
-        # File hasn't changed
+        # Markdown file is older than or same as database - skip
         echo "✓ UNCHANGED: $FILENAME"
         UNCHANGED=$((UNCHANGED + 1))
     fi
