@@ -1,0 +1,92 @@
+{
+  "similarities": [
+    {
+      "keyword1": "RL",
+      "keyword2": "reinforcement learning",
+      "type": "abbreviation",
+      "context": "RL is abbreviation for reinforcement learning",
+      "score": 1.0,
+      "directional": false
+    },
+    {
+      "keyword1": "LLM",
+      "keyword2": "large language models",
+      "type": "abbreviation",
+      "context": "LLM is abbreviation for large language models",
+      "score": 1.0,
+      "directional": false
+    },
+    {
+      "keyword1": "AGI",
+      "keyword2": "artificial general intelligence",
+      "type": "abbreviation",
+      "context": "AGI is abbreviation for artificial general intelligence",
+      "score": 1.0,
+      "directional": false
+    },
+    {
+      "keyword1": "reinforcement learning",
+      "keyword2": "experience learning",
+      "type": "related_concept",
+      "context": "RL is a type of experience learning through perception-action-reward cycle",
+      "score": 0.9,
+      "directional": false
+    },
+    {
+      "keyword1": "reinforcement learning",
+      "keyword2": "trial and error",
+      "type": "related_concept",
+      "context": "RL fundamentally uses trial and error learning approach",
+      "score": 0.9,
+      "directional": false
+    },
+    {
+      "keyword1": "reinforcement learning",
+      "keyword2": "world models",
+      "type": "component",
+      "context": "World models are one of 4 essential components of RL agents",
+      "score": 0.8,
+      "directional": false
+    },
+    {
+      "keyword1": "reinforcement learning",
+      "keyword2": "AlphaGo",
+      "type": "application",
+      "context": "AlphaGo is famous implementation of RL algorithms",
+      "score": 0.6,
+      "directional": true
+    },
+    {
+      "keyword1": "reinforcement learning",
+      "keyword2": "supervised learning",
+      "type": "contrast",
+      "context": "Different learning paradigms - supervised uses labeled data, RL uses rewards from environment",
+      "score": 0.3,
+      "directional": false
+    },
+    {
+      "keyword1": "LLM",
+      "keyword2": "reinforcement learning",
+      "type": "contrast",
+      "context": "Sutton argues LLMs imitate humans while RL builds world models through experience",
+      "score": 0.4,
+      "directional": false
+    },
+    {
+      "keyword1": "AlphaGo",
+      "keyword2": "AlphaZero",
+      "type": "related_concept",
+      "context": "AlphaZero is successor to AlphaGo using pure RL without human knowledge",
+      "score": 0.8,
+      "directional": false
+    },
+    {
+      "keyword1": "perception-action-reward cycle",
+      "keyword2": "reinforcement learning",
+      "type": "prerequisite",
+      "context": "Perception-action-reward is the core cycle that defines RL",
+      "score": 0.95,
+      "directional": false
+    }
+  ]
+}

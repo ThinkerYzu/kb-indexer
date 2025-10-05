@@ -1,0 +1,16 @@
+# Knowledge Base Indexer - Python Dependencies
+
+# Core dependencies (standard library only for basic features)
+# No external dependencies required for basic indexing and search
+
+# Context-aware similarity search (optional, choose one):
+# Cloud-based (Gemini):
+google-genai>=0.1.0  # For Gemini LLM backend
+python-dotenv>=1.0.0  # For API key management
+# Local-based (Ollama):
+ollama>=0.1.0  # For local Ollama LLM backend
+
+# For development/testing (optional):
+# pytest>=7.0.0
+# black>=22.0.0
+# pylint>=2.15.0
