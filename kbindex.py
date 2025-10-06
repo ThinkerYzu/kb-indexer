@@ -573,12 +573,12 @@ Score guidelines:
   0.2-0.3 = Weak relationship (tangentially related)
 
 Common similarity types:
-  - abbreviation: Shortened form (RL -> reinforcement learning)
-  - synonym: Same meaning, different words (ML -> machine learning)
+  - abbreviation: Shortened form (RL -> reinforcement learning, AI -> artificial intelligence)
+  - synonym: Same meaning, different wording (neural network <-> artificial neural network)
   - related: Closely related concepts (neural networks -> deep learning)
-  - broader: More general term (AI -> machine learning)
+  - broader: More general term (artificial intelligence -> machine learning)
   - narrower: More specific term (CNN -> neural networks)
-  - alternative: Alternative naming (JavaScript -> JS)
+  - alternative: Alternative naming (car -> automobile, JS -> JavaScript)
                                          """,
                                          formatter_class=argparse.RawDescriptionHelpFormatter)
         p_relate.add_argument("keyword1", help="First keyword (e.g., 'RL')")
