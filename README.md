@@ -273,6 +273,37 @@ kbindex is designed to be used by AI agents. Example workflow:
 
 All output includes rich context for AI decision-making (similarity types, relevance scores, directional flags, context match scores).
 
+### Suggested AI Agent Instructions
+
+To integrate kb-indexer with your AI agent (like Claude Code), add this section to your project's CLAUDE.md file:
+
+```markdown
+## Using kb-indexer for Knowledge Base Search
+
+The `kb-indexer/` tool provides intelligent keyword-based search and discovery for the knowledge base. Use it proactively when the user asks questions that might be answered by existing documentation.
+
+**IMPORTANT:** Always `cd kb-indexer/` before running commands. **Always check `--help`** for detailed usage, especially for option values and guidelines.
+
+**Search Workflow:**
+1. **Search** with user's keywords using `search` subcommand
+2. **If no results:** Use `similar` subcommand to find indexed keywords (always provide --user-context)
+3. **Re-search** with discovered keywords from step 2
+
+**Key Behaviors:**
+- Search uses exact keyword matching - does NOT auto-expand to similar keywords
+- The `similar` subcommand helps discover what keywords to actually search for
+
+**When kb-indexer search fails but you find document via ls/find/grep:**
+1. Check `./kbindex.py relate --help` to see similarity types, score guidelines, and context examples
+2. Use the `relate` subcommand with suggested terms from the help message
+3. This helps future searches succeed with common search terms
+```
+
+This instructs your AI agent to:
+- Use kb-indexer proactively for knowledge base queries
+- Follow the exact → similar → re-search workflow
+- Build the semantic layer by adding relationships when searches fail
+
 ## Project Structure
 
 ```
