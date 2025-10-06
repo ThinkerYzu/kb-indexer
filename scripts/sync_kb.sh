@@ -49,7 +49,7 @@ SKIPPED=0
 UNCHANGED=0
 GENERATED=0
 
-find "$KB_DIR" -type f -name "*.md" | while read -r MD_FILE; do
+while read -r MD_FILE; do
     # Get just the filename (basename)
     FILENAME=$(basename "$MD_FILE")
 
@@ -130,7 +130,7 @@ except:
         echo "✓ UNCHANGED: $FILENAME"
         UNCHANGED=$((UNCHANGED + 1))
     fi
-done
+done < <(find "$KB_DIR" -type f -name "*.md")
 
 echo ""
 echo "=== Sync Complete ==="
