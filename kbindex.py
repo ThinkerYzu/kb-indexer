@@ -492,76 +492,98 @@ class CLI:
         subparsers = parser.add_subparsers(dest="command", help="Command")
 
         # Document commands
-        p_add = subparsers.add_parser("add", help="Add document to index")
-        p_add.add_argument("filepath", help="Path to document")
-        p_add.add_argument("--keywords", help="Path to keywords.json file")
+        p_add = subparsers.add_parser("add", help="Add document to index",
+                                      description="Add a document to the index with keywords from JSON file")
+        p_add.add_argument("filepath", help="Path to markdown document (e.g., ../knowledge-base/doc.md)")
+        p_add.add_argument("--keywords", help="Path to keywords JSON file (default: <filepath>.keywords.json)")
 
-        p_update = subparsers.add_parser("update", help="Update existing document")
-        p_update.add_argument("filepath", help="Path to document")
-        p_update.add_argument("--keywords", help="Path to keywords.json file")
+        p_update = subparsers.add_parser("update", help="Update existing document",
+                                         description="Update an existing document's keywords and metadata")
+        p_update.add_argument("filepath", help="Path to markdown document (e.g., ../knowledge-base/doc.md)")
+        p_update.add_argument("--keywords", help="Path to keywords JSON file (default: <filepath>.keywords.json)")
 
-        p_remove = subparsers.add_parser("remove", help="Remove document from index")
-        p_remove.add_argument("filepath", help="Path to document")
+        p_remove = subparsers.add_parser("remove", help="Remove document from index",
+                                         description="Remove a document and all its keywords from the index")
+        p_remove.add_argument("filepath", help="Document filepath as stored in database (e.g., doc.md)")
 
-        p_list_docs = subparsers.add_parser("list-docs", help="List all indexed documents")
-        p_list_docs.add_argument("--format", choices=["json", "table"], default="table")
+        p_list_docs = subparsers.add_parser("list-docs", help="List all indexed documents",
+                                            description="List all documents in the index with titles and timestamps")
+        p_list_docs.add_argument("--format", choices=["json", "table"], default="table",
+                                 help="Output format: 'json' for structured data, 'table' for human-readable (default: table)")
 
-        p_show = subparsers.add_parser("show", help="Show document details")
-        p_show.add_argument("filepath", help="Path to document")
-        p_show.add_argument("--format", choices=["json", "table"], default="table")
+        p_show = subparsers.add_parser("show", help="Show document details",
+                                       description="Show detailed information about a document including all keywords")
+        p_show.add_argument("filepath", help="Document filepath as stored in database (e.g., doc.md)")
+        p_show.add_argument("--format", choices=["json", "table"], default="table",
+                           help="Output format: 'json' for structured data, 'table' for human-readable (default: table)")
 
         # Keyword commands
-        p_keywords = subparsers.add_parser("keywords", help="List keywords for document")
-        p_keywords.add_argument("filepath", help="Path to document")
-        p_keywords.add_argument("--format", choices=["json", "table"], default="table")
+        p_keywords = subparsers.add_parser("keywords", help="List keywords for document",
+                                           description="List all keywords associated with a document")
+        p_keywords.add_argument("filepath", help="Document filepath as stored in database (e.g., doc.md)")
+        p_keywords.add_argument("--format", choices=["json", "table"], default="table",
+                               help="Output format: 'json' for structured data, 'table' for human-readable (default: table)")
 
-        p_docs = subparsers.add_parser("docs", help="List documents containing keyword")
-        p_docs.add_argument("keyword", help="Keyword to search")
-        p_docs.add_argument("--format", choices=["json", "table"], default="table")
+        p_docs = subparsers.add_parser("docs", help="List documents containing keyword",
+                                       description="Find all documents that contain a specific keyword")
+        p_docs.add_argument("keyword", help="Keyword to search for (e.g., 'reinforcement learning')")
+        p_docs.add_argument("--format", choices=["json", "table"], default="table",
+                           help="Output format: 'json' for structured data, 'table' for human-readable (default: table)")
 
-        p_stats = subparsers.add_parser("stats", help="Get keyword statistics")
-        p_stats.add_argument("keyword", help="Keyword")
-        p_stats.add_argument("--format", choices=["json", "table"], default="table")
+        p_stats = subparsers.add_parser("stats", help="Get keyword statistics",
+                                        description="Get statistics about a keyword (document count, related keywords)")
+        p_stats.add_argument("keyword", help="Keyword to get statistics for (e.g., 'AGI')")
+        p_stats.add_argument("--format", choices=["json", "table"], default="table",
+                            help="Output format: 'json' for structured data, 'table' for human-readable (default: table)")
 
         # Similarity commands
-        p_similar = subparsers.add_parser("similar", help="Get similar keywords")
-        p_similar.add_argument("keyword", help="Keyword")
-        p_similar.add_argument("--type", help="Filter by similarity type")
-        p_similar.add_argument("--user-context", help="User's context for AI-powered filtering")
+        p_similar = subparsers.add_parser("similar", help="Get similar keywords",
+                                          description="Find keywords similar to a given keyword with optional context filtering")
+        p_similar.add_argument("keyword", help="Keyword to find similarities for (e.g., 'RL')")
+        p_similar.add_argument("--type", help="Filter by similarity type (e.g., 'abbreviation', 'synonym', 'related')")
+        p_similar.add_argument("--user-context", help="User's context for AI-powered filtering (e.g., 'game AI and competitions')")
         p_similar.add_argument("--context-threshold", type=float, default=0.7,
-                              help="Minimum context match score (0.0-1.0, default: 0.7)")
+                              help="Minimum context match score for filtering (0.0-1.0, default: 0.7)")
         p_similar.add_argument("--llm-backend", choices=["gemini", "ollama"], default="ollama",
-                              help="LLM backend for context matching (default: ollama)")
-        p_similar.add_argument("--llm-model", help="LLM model name (default: auto-select)")
-        p_similar.add_argument("--format", choices=["json", "table"], default="table")
+                              help="LLM backend for context matching: 'ollama' (local, free, default) or 'gemini' (cloud, requires API key)")
+        p_similar.add_argument("--llm-model", help="LLM model name (e.g., 'llama3.2:3b' for ollama, default: auto-select)")
+        p_similar.add_argument("--format", choices=["json", "table"], default="table",
+                              help="Output format: 'json' for structured data, 'table' for human-readable (default: table)")
 
-        p_relate = subparsers.add_parser("relate", help="Add similarity relationship")
-        p_relate.add_argument("keyword1", help="First keyword")
-        p_relate.add_argument("keyword2", help="Second keyword")
-        p_relate.add_argument("--type", required=True, help="Similarity type")
-        p_relate.add_argument("--context", required=True, help="Context explanation")
-        p_relate.add_argument("--score", type=float, default=0.5, help="Score (0-1)")
-        p_relate.add_argument("--directional", action="store_true", help="One-way relationship")
+        p_relate = subparsers.add_parser("relate", help="Add similarity relationship",
+                                         description="Add a similarity relationship between two keywords")
+        p_relate.add_argument("keyword1", help="First keyword (e.g., 'RL')")
+        p_relate.add_argument("keyword2", help="Second keyword (e.g., 'reinforcement learning')")
+        p_relate.add_argument("--type", required=True, help="Similarity type (e.g., 'abbreviation', 'synonym', 'related')")
+        p_relate.add_argument("--context", required=True, help="Context explanation (e.g., 'RL is abbreviation for reinforcement learning')")
+        p_relate.add_argument("--score", type=float, default=0.5, help="Similarity score between 0.0 and 1.0 (default: 0.5)")
+        p_relate.add_argument("--directional", action="store_true", help="One-way relationship (keyword1 -> keyword2 only)")
 
-        p_unrelate = subparsers.add_parser("unrelate", help="Remove similarity relationship")
-        p_unrelate.add_argument("keyword1", help="First keyword")
-        p_unrelate.add_argument("keyword2", help="Second keyword")
+        p_unrelate = subparsers.add_parser("unrelate", help="Remove similarity relationship",
+                                           description="Remove a similarity relationship between two keywords")
+        p_unrelate.add_argument("keyword1", help="First keyword (e.g., 'RL')")
+        p_unrelate.add_argument("keyword2", help="Second keyword (e.g., 'reinforcement learning')")
 
-        p_import_sim = subparsers.add_parser("import-similarities", help="Import similarities from JSON")
-        p_import_sim.add_argument("file", help="Path to similarities.json")
+        p_import_sim = subparsers.add_parser("import-similarities", help="Import similarities from JSON",
+                                             description="Import multiple similarity relationships from a JSON file")
+        p_import_sim.add_argument("file", help="Path to similarities JSON file (e.g., examples/similarities.json)")
 
         # Search commands
-        p_search = subparsers.add_parser("search", help="Search for documents by keywords")
-        p_search.add_argument("keywords", nargs="+", help="Keywords to search")
-        p_search.add_argument("--or", dest="or_mode", action="store_true", help="OR mode (default for multiple keywords)")
-        p_search.add_argument("--and", dest="and_mode", action="store_true", help="AND mode")
-        p_search.add_argument("--format", choices=["json", "table"], default="table")
+        p_search = subparsers.add_parser("search", help="Search for documents by keywords",
+                                         description="Search for documents matching one or more keywords")
+        p_search.add_argument("keywords", nargs="+", help="One or more keywords to search for (e.g., 'LLM' 'reinforcement learning')")
+        p_search.add_argument("--or", dest="or_mode", action="store_true", help="OR mode: match any keyword (default for multiple keywords)")
+        p_search.add_argument("--and", dest="and_mode", action="store_true", help="AND mode: match all keywords")
+        p_search.add_argument("--format", choices=["json", "table"], default="table",
+                             help="Output format: 'json' for structured data, 'table' for human-readable (default: table)")
 
         # Database commands
-        p_init = subparsers.add_parser("init", help="Initialize new database")
-        p_init.add_argument("--db", help="Database path")
+        p_init = subparsers.add_parser("init", help="Initialize new database",
+                                       description="Create a new database with schema")
+        p_init.add_argument("--db", help="Database path (default: kb_index.db in current directory)")
 
-        p_db_stats = subparsers.add_parser("db-stats", help="Database statistics")
+        p_db_stats = subparsers.add_parser("db-stats", help="Database statistics",
+                                           description="Show statistics about the database (document count, keyword count, etc.)")
 
         args = parser.parse_args()
 
