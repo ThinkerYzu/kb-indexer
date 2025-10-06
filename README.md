@@ -8,6 +8,29 @@ A pure data tool for indexing and searching documents with keywords and semantic
 
 **Core Principle:** kbindex is a data tool, not an AI. It stores and retrieves information; AI agents make all intelligent decisions.
 
+## The Problem & Solution
+
+**The Challenge:**
+- Manual keyword maintenance is tedious and error-prone
+- Users often don't know the "right" keyword to find what they need
+- Traditional full-text search returns too many irrelevant results
+
+**The Solution:**
+kbindex creates a collaborative system between humans, LLMs, and structured data:
+
+1. **LLM generates keywords** - Claude Code (or Ollama/Gemini) automatically extracts comprehensive keywords from documents
+2. **Structured storage** - SQLite stores documents, keywords, and their semantic relationships
+3. **Relationship network** - Similarity mappings (abbreviations, synonyms, related terms) grow over time
+4. **AI-powered search** - LLMs help users discover related keywords, filter by context, and make intelligent search decisions
+
+**The Result:**
+Over time, the knowledge base becomes smarter:
+- More keywords → better coverage
+- More similarities → better discovery
+- Context awareness → more precise results
+
+The system builds a **domain-specific semantic layer** that LLMs can leverage for intelligent search, eliminating manual maintenance while keeping the indexer itself simple and deterministic.
+
 ## Features
 
 - **AI-Powered Keyword Generation** - Automatic keyword extraction using Claude Code CLI (primary), with Ollama/Gemini fallback
