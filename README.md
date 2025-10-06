@@ -382,7 +382,7 @@ Real data tests validate the system using actual keywords.json files from the kn
 
 ## License
 
-MIT License (or as per project license)
+MIT License - see [LICENSE](LICENSE) file for details
 
 ## See Also
 
