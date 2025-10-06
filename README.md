@@ -153,7 +153,7 @@ The CLI provides comprehensive help messages with:
 
 ```bash
 # List keywords for a document
-./kbindex.py keywords ../knowledge-base/my-doc.md
+./kbindex.py keywords knowledge-base/my-doc.md
 
 # Find documents containing a keyword
 ./kbindex.py docs "reinforcement learning"
@@ -328,4 +328,4 @@ MIT License (or as per project license)
 ## See Also
 
 - [DESIGN.md](DESIGN.md) - Detailed design decisions and architecture
-- [../knowledge-base/](../knowledge-base/) - Document repository
+- [knowledge-base/](knowledge-base/) - Document repository
