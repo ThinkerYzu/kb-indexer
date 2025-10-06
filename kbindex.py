@@ -538,12 +538,24 @@ class CLI:
 
         # Similarity commands
         p_similar = subparsers.add_parser("similar", help="Get similar keywords",
-                                          description="Find keywords similar to a given keyword with optional context filtering")
+                                          description="Find keywords similar to a given keyword with optional context filtering",
+                                          epilog="""
+Context threshold guidelines (when using --user-context):
+  0.9-1.0 = Very strict filtering (only highly relevant matches)
+  0.7-0.8 = Balanced filtering (recommended, filters out unrelated)
+  0.5-0.6 = Relaxed filtering (includes loosely related terms)
+  0.3-0.4 = Minimal filtering (keeps most results)
+
+Examples:
+  ./kbindex.py similar "RL" --user-context "game AI" --context-threshold 0.7
+  ./kbindex.py similar "Python" --user-context "package management" --type related
+                                          """,
+                                          formatter_class=argparse.RawDescriptionHelpFormatter)
         p_similar.add_argument("keyword", help="Keyword to find similarities for (e.g., 'RL')")
         p_similar.add_argument("--type", help="Filter by similarity type (e.g., 'abbreviation', 'synonym', 'related')")
         p_similar.add_argument("--user-context", help="User's context for AI-powered filtering (e.g., 'game AI and competitions')")
         p_similar.add_argument("--context-threshold", type=float, default=0.7,
-                              help="Minimum context match score for filtering (0.0-1.0, default: 0.7)")
+                              help="Context match threshold: 0.9-1.0=very strict, 0.7-0.8=balanced (default), 0.5-0.6=relaxed")
         p_similar.add_argument("--llm-backend", choices=["gemini", "ollama"], default="ollama",
                               help="LLM backend for context matching: 'ollama' (local, free, default) or 'gemini' (cloud, requires API key)")
         p_similar.add_argument("--llm-model", help="LLM model name (e.g., 'llama3.2:3b' for ollama, default: auto-select)")
@@ -551,12 +563,31 @@ class CLI:
                               help="Output format: 'json' for structured data, 'table' for human-readable (default: table)")
 
         p_relate = subparsers.add_parser("relate", help="Add similarity relationship",
-                                         description="Add a similarity relationship between two keywords")
+                                         description="Add a similarity relationship between two keywords",
+                                         epilog="""
+Score guidelines:
+  1.0 = Perfect match (abbreviations, exact synonyms)
+  0.8-0.9 = Very strong relationship (close synonyms, common alternates)
+  0.6-0.7 = Strong relationship (related concepts, domain-specific terms)
+  0.4-0.5 = Moderate relationship (loosely related, broader associations)
+  0.2-0.3 = Weak relationship (tangentially related)
+
+Common similarity types:
+  - abbreviation: Shortened form (RL -> reinforcement learning)
+  - synonym: Same meaning, different words (ML -> machine learning)
+  - related: Closely related concepts (neural networks -> deep learning)
+  - broader: More general term (AI -> machine learning)
+  - narrower: More specific term (CNN -> neural networks)
+  - alternative: Alternative naming (JavaScript -> JS)
+                                         """,
+                                         formatter_class=argparse.RawDescriptionHelpFormatter)
         p_relate.add_argument("keyword1", help="First keyword (e.g., 'RL')")
         p_relate.add_argument("keyword2", help="Second keyword (e.g., 'reinforcement learning')")
-        p_relate.add_argument("--type", required=True, help="Similarity type (e.g., 'abbreviation', 'synonym', 'related')")
+        p_relate.add_argument("--type", required=True,
+                             help="Similarity type: abbreviation, synonym, related, broader, narrower, alternative")
         p_relate.add_argument("--context", required=True, help="Context explanation (e.g., 'RL is abbreviation for reinforcement learning')")
-        p_relate.add_argument("--score", type=float, default=0.5, help="Similarity score between 0.0 and 1.0 (default: 0.5)")
+        p_relate.add_argument("--score", type=float, default=0.5,
+                             help="Similarity strength: 1.0=perfect, 0.8-0.9=very strong, 0.6-0.7=strong, 0.4-0.5=moderate (default: 0.5)")
         p_relate.add_argument("--directional", action="store_true", help="One-way relationship (keyword1 -> keyword2 only)")
 
         p_unrelate = subparsers.add_parser("unrelate", help="Remove similarity relationship",
