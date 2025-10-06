@@ -1,12 +1,17 @@
 # Knowledge Base Indexer (kbindex)
 
-A pure data tool for indexing and searching documents with keywords and semantic relationships. Designed to provide structured data for AI agents to make intelligent search decisions.
+Build a domain-specific semantic search layer using LLMs to automatically generate and maintain keywords and relationships over time.
 
 ## Overview
 
-**kbindex** stores documents, keywords, and their relationships in a SQLite database. It provides query interfaces that return structured data (JSON) for AI agents to interpret and use in search expansion and decision-making.
+Manual keyword maintenance is impractical, and users rarely know the exact keywords needed to find documents. **kbindex** solves this by leveraging LLMs to build an ever-growing semantic layer:
 
-**Core Principle:** kbindex is a data tool, not an AI. It stores and retrieves information; AI agents make all intelligent decisions.
+- **LLMs generate keywords** automatically from documents
+- **LLMs discover relationships** between keywords (abbreviations, synonyms, related concepts)
+- **Structured storage** in SQLite makes the semantic layer queryable and reusable
+- **LLMs assist search** by expanding queries with related keywords based on context
+
+**Core Principle:** kbindex is a data tool, not an AI. It stores and retrieves semantic information; LLMs provide the intelligence for generation, maintenance, and search decisions.
 
 ## The Problem & Solution
 
