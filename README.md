@@ -39,7 +39,7 @@ The system builds a **domain-specific semantic layer** that LLMs can leverage fo
 ## Features
 
 - **AI-Powered Keyword Generation** - Automatic keyword extraction using Claude Code CLI (primary), with Ollama/Gemini fallback
-- **Superior Quality** - Claude Code produces comprehensive, well-categorized keywords with enforced consistency
+- **Strategic LLM Usage** - Claude Code for quality (keyword generation), Ollama for cost efficiency (context matching)
 - **Intelligent Sync** - Automated detection of new/modified documents with keyword regeneration
 - **Document Indexing** - Store markdown documents with titles, summaries, and keywords
 - **Keyword Management** - Normalized keyword storage with optional categorization
@@ -267,9 +267,11 @@ kbindex is designed to be used by AI agents. Example workflow:
 4. **AI searches:** With contextually relevant keywords only (e.g., "AlphaGo", not general ML terms)
 5. **AI presents:** More precise, domain-specific results
 
-**LLM Backend Options:**
-- **Ollama** (default): Local, free, no API key, privacy-preserving
-- **Gemini**: Cloud, requires `GEMINI_API_KEY` environment variable
+**LLM Backend Strategy:**
+The project uses different LLMs strategically to balance quality and cost:
+- **Claude Code** (sync_kb.sh): High-quality keyword generation - run once per document, quality matters most
+- **Ollama** (similar command default): Cost-free context matching with `llama3.2:3b` - run frequently during searches, efficiency matters most
+- **Gemini** (optional): Cloud alternative with `gemini-2.0-flash-exp` requiring `GEMINI_API_KEY` environment variable
 
 All output includes rich context for AI decision-making (similarity types, relevance scores, directional flags, context match scores).
 
