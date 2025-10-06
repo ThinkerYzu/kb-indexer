@@ -50,7 +50,28 @@ The system builds a **domain-specific semantic layer** that LLMs can leverage fo
 
 ## Quick Start
 
-**Setup**: Place your markdown documents in `./knowledge-base/` directory (or create a symlink to your existing knowledge base).
+**Automated Setup** (recommended):
+
+```bash
+# Run setup script to detect and configure AI backends
+./scripts/setup.sh
+
+# Or run in interactive mode for guided setup
+./scripts/setup.sh --interactive
+```
+
+The setup script will:
+- Check for required tools (Python, Claude Code, Ollama)
+- Verify AI backend availability and configuration
+- Initialize database (interactive mode)
+- Set up knowledge-base directory (interactive mode)
+- Install Python packages (interactive mode)
+- Pull Ollama models (interactive mode)
+- Provide personalized setup instructions
+
+**Manual Setup**:
+
+Place your markdown documents in `./knowledge-base/` directory (or create a symlink to your existing knowledge base).
 
 ```bash
 # Initialize database
@@ -72,15 +93,52 @@ The system builds a **domain-specific semantic layer** that LLMs can leverage fo
 
 ## Installation
 
-No installation required. Just Python 3.8+:
+### Requirements
+
+- Python 3.8 or higher
+- One of the following AI backends (at least one recommended):
+  - **Claude Code CLI** (recommended for keyword generation)
+  - **Ollama** (recommended for free, local context matching)
+  - **Google Gemini API** (cloud alternative, requires API key)
+
+### Quick Setup
 
 ```bash
 cd kb-indexer
-chmod +x kbindex.py
-./kbindex.py --help
+chmod +x scripts/setup.sh
 
-# For detailed help on any command
-./kbindex.py <command> --help
+# Run interactive setup (recommended)
+./scripts/setup.sh --interactive
+
+# Or run detection only
+./scripts/setup.sh
+```
+
+The interactive setup will guide you through:
+1. Database initialization
+2. Knowledge-base directory setup
+3. Python package installation (ollama, google-genai)
+4. Ollama model download (llama3.2:3b)
+
+### Manual Installation
+
+```bash
+# Make scripts executable
+chmod +x kbindex.py scripts/*.sh
+
+# Initialize database
+./kbindex.py init
+
+# Set up knowledge-base directory
+mkdir knowledge-base
+# OR link to existing directory
+ln -s /path/to/your/knowledge-base knowledge-base
+
+# Install optional Python packages for AI features
+pip install ollama google-genai
+
+# Pull Ollama model (if using Ollama)
+ollama pull llama3.2:3b
 ```
 
 The CLI provides comprehensive help messages with:
