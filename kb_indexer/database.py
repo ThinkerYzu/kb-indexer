@@ -454,24 +454,24 @@ class Database:
         # Clamp score to [0, 1]
         score = max(0.0, min(1.0, score))
 
-        # Check if similarity already exists
+        # Check if similarity already exists for this keyword pair and type
         existing = self.conn.execute(
             """
             SELECT id FROM keyword_similarities
-            WHERE keyword_id_1 = ? AND keyword_id_2 = ?
+            WHERE keyword_id_1 = ? AND keyword_id_2 = ? AND similarity_type = ?
             """,
-            (kw1_id, kw2_id),
+            (kw1_id, kw2_id, similarity_type),
         ).fetchone()
 
         if existing:
-            # Update existing similarity
+            # Update existing similarity (context, score, directional)
             self.conn.execute(
                 """
                 UPDATE keyword_similarities
-                SET similarity_type = ?, context = ?, score = ?, directional = ?
+                SET context = ?, score = ?, directional = ?
                 WHERE id = ?
                 """,
-                (similarity_type, context, score, directional, existing["id"]),
+                (context, score, directional, existing["id"]),
             )
             self.conn.commit()
             return existing["id"]
@@ -488,15 +488,16 @@ class Database:
             self.conn.commit()
             return cursor.lastrowid
 
-    def remove_similarity(self, keyword1: str, keyword2: str) -> bool:
+    def remove_similarity(self, keyword1: str, keyword2: str, similarity_type: Optional[str] = None) -> bool:
         """Remove keyword similarity relationship.
 
         Args:
             keyword1: First keyword
             keyword2: Second keyword
+            similarity_type: Optional type to remove. If None, removes all relationships between the keywords.
 
         Returns:
-            True if relationship was removed, False if not found
+            True if relationship(s) were removed, False if not found
         """
         kw1_norm = self._normalize_keyword(keyword1)
         kw2_norm = self._normalize_keyword(keyword2)
@@ -514,13 +515,24 @@ class Database:
         if kw1_id > kw2_id:
             kw1_id, kw2_id = kw2_id, kw1_id
 
-        cursor = self.conn.execute(
-            """
-            DELETE FROM keyword_similarities
-            WHERE keyword_id_1 = ? AND keyword_id_2 = ?
-            """,
-            (kw1_id, kw2_id),
-        )
+        if similarity_type:
+            # Remove specific type only
+            cursor = self.conn.execute(
+                """
+                DELETE FROM keyword_similarities
+                WHERE keyword_id_1 = ? AND keyword_id_2 = ? AND similarity_type = ?
+                """,
+                (kw1_id, kw2_id, similarity_type),
+            )
+        else:
+            # Remove all relationships between these keywords
+            cursor = self.conn.execute(
+                """
+                DELETE FROM keyword_similarities
+                WHERE keyword_id_1 = ? AND keyword_id_2 = ?
+                """,
+                (kw1_id, kw2_id),
+            )
         self.conn.commit()
         return cursor.rowcount > 0
 

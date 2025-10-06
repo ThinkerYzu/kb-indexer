@@ -369,13 +369,20 @@ class CLI:
         """Remove similarity relationship."""
         self._open_db()
 
-        success = self.db.remove_similarity(args.keyword1, args.keyword2)
+        similarity_type = getattr(args, 'type', None)
+        success = self.db.remove_similarity(args.keyword1, args.keyword2, similarity_type)
 
         if success:
-            print(f"Removed similarity: {args.keyword1} ↔ {args.keyword2}")
+            if similarity_type:
+                print(f"Removed similarity ({similarity_type}): {args.keyword1} ↔ {args.keyword2}")
+            else:
+                print(f"Removed all similarities: {args.keyword1} ↔ {args.keyword2}")
             return 0
         else:
-            print(f"Similarity not found: {args.keyword1} ↔ {args.keyword2}", file=sys.stderr)
+            if similarity_type:
+                print(f"Similarity ({similarity_type}) not found: {args.keyword1} ↔ {args.keyword2}", file=sys.stderr)
+            else:
+                print(f"Similarity not found: {args.keyword1} ↔ {args.keyword2}", file=sys.stderr)
             return 1
 
     def cmd_import_similarities(self, args):
@@ -601,6 +608,7 @@ Context examples (describe the domain/background):
                                            description="Remove a similarity relationship between two keywords")
         p_unrelate.add_argument("keyword1", help="First keyword (e.g., 'RL')")
         p_unrelate.add_argument("keyword2", help="Second keyword (e.g., 'reinforcement learning')")
+        p_unrelate.add_argument("--type", help="Similarity type to remove (if not specified, removes all types)")
 
         p_import_sim = subparsers.add_parser("import-similarities", help="Import similarities from JSON",
                                              description="Import multiple similarity relationships from a JSON file")
@@ -618,7 +626,6 @@ Context examples (describe the domain/background):
         # Database commands
         p_init = subparsers.add_parser("init", help="Initialize new database",
                                        description="Create a new database with schema")
-        p_init.add_argument("--db", help="Database path (default: kb_index.db in current directory)")
 
         p_db_stats = subparsers.add_parser("db-stats", help="Database statistics",
                                            description="Show statistics about the database (document count, keyword count, etc.)")

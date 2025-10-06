@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS keyword_similarities (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (keyword_id_1) REFERENCES keywords(id) ON DELETE CASCADE,
     FOREIGN KEY (keyword_id_2) REFERENCES keywords(id) ON DELETE CASCADE,
-    UNIQUE(keyword_id_1, keyword_id_2),
+    UNIQUE(keyword_id_1, keyword_id_2, similarity_type),  -- Allow multiple types per keyword pair
     CHECK(keyword_id_1 < keyword_id_2),              -- Ensure consistent ordering
     CHECK(score >= 0 AND score <= 1)                  -- Validate score range
 );
