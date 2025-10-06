@@ -251,11 +251,15 @@ kb-indexer/
 │   └── generate_keywords.py  # AI-powered keyword extraction
 ├── examples/
 │   ├── sample.keywords.json
-│   └── similarities.json
+│   ├── similarities.json
+│   ├── ai-llm-vs-reinforcement-learning.keywords.json    # Real test data
+│   ├── building-rag-systems-python.keywords.json        # Real test data
+│   └── python-pip-to-uv-modern-project-management.keywords.json  # Real test data
 └── tests/
-    ├── test_database.py
-    ├── test_parser.py
-    └── test_search.py
+    ├── test_database.py       # Database operations
+    ├── test_parser.py         # JSON/markdown parsing
+    ├── test_search.py         # Search engine
+    └── test_real_data.py      # Tests using real keywords.json files
 ```
 
 ## Development
@@ -275,10 +279,16 @@ python3 -m pytest tests/ --cov=kb_indexer
 
 ### Test Results
 
-All 40 unit tests pass:
+All 59 tests pass:
 - 16 database operation tests
 - 12 parser tests (keywords, similarities, markdown)
 - 12 search engine tests
+- 19 real data tests (validation, database operations, similarity, integrity, search)
+
+Real data tests validate the system using actual keywords.json files from the knowledge base:
+- `ai-llm-vs-reinforcement-learning.keywords.json` (37 keywords)
+- `building-rag-systems-python.keywords.json` (31 keywords)
+- `python-pip-to-uv-modern-project-management.keywords.json` (37 keywords)
 
 ### Code Organization
 

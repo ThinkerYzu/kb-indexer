@@ -1,0 +1,65 @@
+{
+  "filepath": "building-rag-systems-python.md",
+  "title": "Building RAG Systems With Python - Complete Implementation Guide",
+  "summary": "Comprehensive step-by-step guide to implementing a Retrieval-Augmented Generation (RAG) system in Python, covering document chunking, embedding, vector database storage, retrieval, reranking with cross-encoders, and LLM-based answer generation. Includes practical implementation using ChromaDB, sentence transformers, and Google Gemini with real working code and test results.",
+  "keywords": [
+    "RAG",
+    "retrieval-augmented generation",
+    "Python",
+    "embeddings",
+    "vector database",
+    "ChromaDB",
+    "sentence transformers",
+    "cross-encoder",
+    "reranking",
+    "LLM",
+    "Gemini",
+    "semantic search",
+    "document chunking",
+    "knowledge base",
+    "intelligent customer service",
+    "natural language processing",
+    "NLP",
+    "HuggingFace",
+    "Jupyter Notebook",
+    "vector similarity",
+    "query-document matching",
+    "context retrieval",
+    "prompt engineering",
+    "api integration",
+    "machine learning",
+    "AI system design"
+  ],
+  "categories": {
+    "primary": [
+      "RAG",
+      "retrieval-augmented generation",
+      "vector database",
+      "semantic search",
+      "knowledge base"
+    ],
+    "concepts": [
+      "embeddings",
+      "reranking",
+      "document chunking",
+      "vector similarity",
+      "query-document matching",
+      "context retrieval",
+      "prompt engineering"
+    ],
+    "tools": [
+      "Python",
+      "ChromaDB",
+      "sentence transformers",
+      "cross-encoder",
+      "Gemini",
+      "HuggingFace",
+      "Jupyter Notebook"
+    ],
+    "abbreviations": [
+      "RAG",
+      "LLM",
+      "NLP"
+    ]
+  }
+}

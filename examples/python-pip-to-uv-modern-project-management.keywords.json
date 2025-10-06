@@ -1,0 +1,73 @@
+{
+  "filepath": "python-pip-to-uv-modern-project-management.md",
+  "title": "From Pip to Uv: Modern Python Project Management",
+  "summary": "Comprehensive guide covering the evolution of Python project management from traditional pip/venv workflows to modern automation tools. Explains the problems with each approach, how virtual environments work internally through sys.path manipulation, the critical distinction between direct and indirect dependencies, and how modern tools like uv, Poetry, and PDM automate previously manual processes while maintaining compatibility with pyproject.toml standards.",
+  "keywords": [
+    "pip",
+    "uv",
+    "Poetry",
+    "PDM",
+    "venv",
+    "virtual environment",
+    "pyproject.toml",
+    "requirements.txt",
+    "dependency management",
+    "Python package management",
+    "editable install",
+    "pip freeze",
+    "sys.path",
+    "site-packages",
+    "lock file",
+    "uv.lock",
+    "Conda",
+    "Anaconda",
+    "Miniconda",
+    "pip-tools",
+    "orphan dependencies",
+    "direct dependencies",
+    "indirect dependencies",
+    "wheel",
+    "PEP 517",
+    "PEP 518",
+    "PEP 621",
+    "development mode",
+    "pip install -e",
+    "uv add",
+    "uv sync",
+    "uv run"
+  ],
+  "categories": {
+    "primary": [
+      "Python package management",
+      "dependency management",
+      "virtual environment",
+      "pyproject.toml"
+    ],
+    "concepts": [
+      "editable install",
+      "direct dependencies",
+      "indirect dependencies",
+      "orphan dependencies",
+      "sys.path",
+      "site-packages",
+      "lock file",
+      "development mode"
+    ],
+    "tools": [
+      "pip",
+      "uv",
+      "Poetry",
+      "PDM",
+      "venv",
+      "Conda",
+      "Anaconda",
+      "Miniconda",
+      "pip-tools"
+    ],
+    "abbreviations": [
+      "PEP 517",
+      "PEP 518",
+      "PEP 621"
+    ]
+  }
+}

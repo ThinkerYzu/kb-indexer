@@ -1,0 +1,77 @@
+{
+  "filepath": "ai-llm-vs-reinforcement-learning.md",
+  "title": "AI: LLMs vs Reinforcement Learning - Richard Sutton's Perspective",
+  "summary": "Richard Sutton, father of reinforcement learning and Turing Award winner, argues that Large Language Models are a dead end for achieving AGI. He advocates for experience-based learning through perception-action-reward cycles, similar to how animals learn, rather than imitating human knowledge through text prediction. Sutton positions AGI development as a cosmic evolutionary step from biological replication to designed intelligence.",
+  "keywords": [
+    "reinforcement learning",
+    "large language models",
+    "LLM",
+    "AGI",
+    "artificial general intelligence",
+    "Richard Sutton",
+    "world models",
+    "experience learning",
+    "perception-action-reward cycle",
+    "goal-driven behavior",
+    "trial and error",
+    "bitter lesson",
+    "supervised learning",
+    "self-supervised learning",
+    "ground truth",
+    "temporal difference learning",
+    "TD learning",
+    "value function",
+    "policy",
+    "AlphaGo",
+    "AlphaZero",
+    "animal intelligence",
+    "embodied intelligence",
+    "Yann LeCun",
+    "JEPA",
+    "catastrophic forgetting",
+    "generalization",
+    "Moravec's paradox",
+    "designed intelligence",
+    "replicators vs designers",
+    "cybersecurity",
+    "next token prediction"
+  ],
+  "categories": {
+    "primary": [
+      "reinforcement learning",
+      "large language models",
+      "AGI",
+      "experience learning",
+      "world models"
+    ],
+    "concepts": [
+      "perception-action-reward cycle",
+      "goal-driven behavior",
+      "trial and error",
+      "bitter lesson",
+      "ground truth",
+      "value function",
+      "policy",
+      "temporal difference learning",
+      "animal intelligence",
+      "embodied intelligence",
+      "catastrophic forgetting",
+      "generalization",
+      "Moravec's paradox",
+      "next token prediction",
+      "designed intelligence",
+      "replicators vs designers"
+    ],
+    "tools": [
+      "AlphaGo",
+      "AlphaZero",
+      "JEPA"
+    ],
+    "abbreviations": [
+      "LLM",
+      "AGI",
+      "TD learning",
+      "JEPA"
+    ]
+  }
+}
