@@ -144,7 +144,7 @@ except:
         echo "✓ UNCHANGED: $FILENAME"
         UNCHANGED=$((UNCHANGED + 1))
     fi
-done < <(find "$KB_DIR" -type f -name "*.md")
+done < <(find -L "$KB_DIR" -type f -name "*.md")
 
 echo ""
 echo "=== Sync Complete ==="
