@@ -38,6 +38,10 @@ A pure data tool for indexing and searching documents with keywords and semantic
 
 # Find similar keywords
 ./kbindex.py similar "reinforcement learning" --format json
+
+# Get detailed help for any command
+./kbindex.py search --help
+./kbindex.py similar --help
 ```
 
 ## Installation
@@ -48,7 +52,16 @@ No installation required. Just Python 3.8+:
 cd kb-indexer
 chmod +x kbindex.py
 ./kbindex.py --help
+
+# For detailed help on any command
+./kbindex.py <command> --help
 ```
+
+The CLI provides comprehensive help messages with:
+- Detailed descriptions of what each command does
+- Examples of valid input values
+- Explanation of all options and formats
+- Value ranges for numeric parameters
 
 ## Documentation
 
@@ -296,7 +309,8 @@ Real data tests validate the system using actual keywords.json files from the kn
 - **database.py** (600+ lines) - Complete SQLite CRUD operations
 - **parser.py** (250+ lines) - JSON and markdown parsing with validation
 - **search.py** (250+ lines) - Search, filtering, and output formatting
-- **kbindex.py** (500+ lines) - CLI with all commands
+- **kbindex.py** (600+ lines) - CLI with all commands and detailed help messages
+- **context_matcher.py** (150+ lines) - LLM-based context matching for similarity filtering
 
 ## License
 

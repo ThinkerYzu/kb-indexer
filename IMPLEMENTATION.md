@@ -33,10 +33,11 @@ The Knowledge Base Indexer (kbindex) is a pure data tool for indexing documents 
    - Similar keyword expansion
    - Rich JSON output formatting
 
-4. **kbindex.py** (560 lines)
+4. **kbindex.py** (620 lines)
    - Complete CLI with 14 commands
    - JSON and table output formats
-   - Comprehensive help and error handling
+   - Comprehensive help messages with examples and detailed descriptions
+   - Error handling and validation
 
 ### Test Suite
 
@@ -71,6 +72,23 @@ The Knowledge Base Indexer (kbindex) is a pure data tool for indexing documents 
 #### Search
 - `search` - Search documents (OR/AND modes)
 - `db-stats` - Database statistics
+
+## Recent Updates (2025-10-06)
+
+### CLI Improvements
+1. **Enhanced Help Messages**
+   - Added detailed descriptions for all subcommands
+   - Included concrete examples for all arguments (e.g., 'RL', 'game AI and competitions')
+   - Documented valid choices for all options
+   - Explained output format differences (json vs table)
+   - Added value ranges for numeric parameters (0.0-1.0)
+   - Clarified LLM backend tradeoffs (ollama: local/free vs gemini: cloud/API key)
+
+2. **Path Resolution in sync_kb.sh**
+   - Fixed script to work from any directory
+   - All paths now resolved to absolute before changing directory
+   - Database always created/used in kb-indexer/kb_index.db
+   - Ensures consistent behavior regardless of invocation location
 
 ## Key Technical Achievements
 
