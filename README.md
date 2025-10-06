@@ -207,13 +207,15 @@ Define keyword relationships in `similarities.json`:
       "keyword1": "RL",
       "keyword2": "reinforcement learning",
       "type": "abbreviation",
-      "context": "RL is abbreviation for reinforcement learning",
+      "context": "machine learning and AI research",
       "score": 1.0,
       "directional": false
     }
   ]
 }
 ```
+
+**Note**: The `context` field should describe the domain/background where these keywords are used (e.g., "game AI competitions", "natural language processing"), not explain the relationship (the `type` field already does that).
 
 ## For AI Agents
 
