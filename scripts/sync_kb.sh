@@ -9,13 +9,22 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KB_INDEXER_DIR="$(dirname "$SCRIPT_DIR")"
-KB_DIR="${KB_DIR:-$(dirname "$KB_INDEXER_DIR")/knowledge-base}"
+# Resolve KB_DIR to absolute path
+if [ -n "$KB_DIR" ]; then
+    KB_DIR="$(cd "$KB_DIR" 2>/dev/null && pwd)" || KB_DIR="${KB_DIR}"
+else
+    KB_DIR="$(cd "$(dirname "$KB_INDEXER_DIR")/knowledge-base" 2>/dev/null && pwd)" || KB_DIR="$(dirname "$KB_INDEXER_DIR")/knowledge-base"
+fi
 KBINDEX="$KB_INDEXER_DIR/kbindex.py"
 KEYGEN="$SCRIPT_DIR/generate_keywords.py"
+
+# Change to kb-indexer directory to ensure database is created/used there
+cd "$KB_INDEXER_DIR"
 
 echo "=== Knowledge Base Sync Script ==="
 echo "KB Indexer: $KB_INDEXER_DIR"
 echo "Knowledge Base: $KB_DIR"
+echo "Database: $KB_INDEXER_DIR/kb_index.db"
 echo ""
 
 # Check if knowledge-base directory exists

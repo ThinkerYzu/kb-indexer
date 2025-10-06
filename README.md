@@ -63,6 +63,7 @@ chmod +x kbindex.py
 ```bash
 # Sync entire knowledge-base directory (recommended - uses AI to generate keywords)
 # Automatically generates/updates .keywords.json files using Claude Code CLI
+# Can be run from any directory - uses database in kb-indexer/kb_index.db
 ./scripts/sync_kb.sh
 
 # Generate keywords for a single document using AI
