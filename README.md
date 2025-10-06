@@ -22,16 +22,14 @@ A pure data tool for indexing and searching documents with keywords and semantic
 
 ## Quick Start
 
+**Setup**: Place your markdown documents in `./knowledge-base/` directory (or create a symlink to your existing knowledge base).
+
 ```bash
 # Initialize database
 ./kbindex.py init
 
-# Add a document
-./kbindex.py add examples/ai-llm-vs-reinforcement-learning.md \
-  --keywords examples/sample.keywords.json
-
-# Import similarity relationships
-./kbindex.py import-similarities examples/similarities.json
+# Sync all documents from knowledge-base/ directory
+./scripts/sync_kb.sh
 
 # Search for documents
 ./kbindex.py search "reinforcement learning" --format json
@@ -76,28 +74,29 @@ The CLI provides comprehensive help messages with:
 ```bash
 # Sync entire knowledge-base directory (recommended - uses AI to generate keywords)
 # Automatically generates/updates .keywords.json files using Claude Code CLI
+# Looks for knowledge-base/ in project root, can be a symlink or actual directory
 # Can be run from any directory - uses database in kb-indexer/kb_index.db
 ./scripts/sync_kb.sh
 
 # Generate keywords for a single document using AI
-./scripts/generate_keywords.py ../knowledge-base/my-doc.md  # Uses Claude Code by default
-./scripts/generate_keywords.py ../knowledge-base/my-doc.md --backend ollama  # Force Ollama
-./scripts/generate_keywords.py ../knowledge-base/my-doc.md --backend gemini  # Force Gemini
+./scripts/generate_keywords.py knowledge-base/my-doc.md  # Uses Claude Code by default
+./scripts/generate_keywords.py knowledge-base/my-doc.md --backend ollama  # Force Ollama
+./scripts/generate_keywords.py knowledge-base/my-doc.md --backend gemini  # Force Gemini
 
 # Add single document (requires .keywords.json file)
-./kbindex.py add ../knowledge-base/my-doc.md
+./kbindex.py add knowledge-base/my-doc.md
 
 # Update existing document
-./kbindex.py update ../knowledge-base/my-doc.md
+./kbindex.py update knowledge-base/my-doc.md
 
 # Remove document from index
-./kbindex.py remove ../knowledge-base/my-doc.md
+./kbindex.py remove my-doc.md  # Use filename as stored in database
 
 # List all indexed documents (timestamps shown in local time)
 ./kbindex.py list-docs
 
 # Show document details (timestamps shown in local time)
-./kbindex.py show ../knowledge-base/my-doc.md
+./kbindex.py show my-doc.md  # Use filename as stored in database
 ```
 
 ### Searching
@@ -255,7 +254,13 @@ kb-indexer/
 ├── IMPLEMENTATION.md          # Implementation details and completed features
 ├── schema.sql                 # Database schema
 ├── requirements.txt           # Python dependencies (optional: ollama, google-genai)
+├── .gitignore                 # Git ignore (includes knowledge-base/)
 ├── kbindex.py                 # Main CLI entry point
+├── kb_index.db                # SQLite database (created on init)
+├── knowledge-base/            # Document directory (symlink or actual dir, git-ignored)
+│   ├── doc1.md
+│   ├── doc1.keywords.json    # Generated keywords
+│   └── ...
 ├── kb_indexer/
 │   ├── __init__.py
 │   ├── database.py           # SQLite database operations
@@ -277,6 +282,8 @@ kb-indexer/
     ├── test_search.py         # Search engine
     └── test_real_data.py      # Tests using real keywords.json files
 ```
+
+**Note**: The `knowledge-base/` directory can be a symlink to your existing knowledge base or an actual directory. It's git-ignored to prevent accidental commits.
 
 ## Development
 

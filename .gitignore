@@ -37,6 +37,9 @@ ENV/
 kb_index.db
 *.db
 
+# Knowledge base (may be a symlink or actual directory)
+knowledge-base/
+
 # Environment variables
 .env
 

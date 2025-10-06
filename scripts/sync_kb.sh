@@ -13,7 +13,12 @@ KB_INDEXER_DIR="$(dirname "$SCRIPT_DIR")"
 if [ -n "$KB_DIR" ]; then
     KB_DIR="$(cd "$KB_DIR" 2>/dev/null && pwd)" || KB_DIR="${KB_DIR}"
 else
-    KB_DIR="$(cd "$(dirname "$KB_INDEXER_DIR")/knowledge-base" 2>/dev/null && pwd)" || KB_DIR="$(dirname "$KB_INDEXER_DIR")/knowledge-base"
+    # First try kb-indexer/knowledge-base/, then fall back to ../knowledge-base/
+    if [ -d "$KB_INDEXER_DIR/knowledge-base" ]; then
+        KB_DIR="$(cd "$KB_INDEXER_DIR/knowledge-base" 2>/dev/null && pwd)" || KB_DIR="$KB_INDEXER_DIR/knowledge-base"
+    else
+        KB_DIR="$(cd "$(dirname "$KB_INDEXER_DIR")/knowledge-base" 2>/dev/null && pwd)" || KB_DIR="$(dirname "$KB_INDEXER_DIR")/knowledge-base"
+    fi
 fi
 KBINDEX="$KB_INDEXER_DIR/kbindex.py"
 KEYGEN="$SCRIPT_DIR/generate_keywords.py"

@@ -2,7 +2,8 @@
 """
 Knowledge Base Indexer CLI
 
-Command-line interface for indexing and searching documents in knowledge-base/.
+Command-line interface for indexing and searching markdown documents.
+By default, looks for documents in ./knowledge-base/ directory.
 """
 
 import argparse
@@ -494,12 +495,12 @@ class CLI:
         # Document commands
         p_add = subparsers.add_parser("add", help="Add document to index",
                                       description="Add a document to the index with keywords from JSON file")
-        p_add.add_argument("filepath", help="Path to markdown document (e.g., ../knowledge-base/doc.md)")
+        p_add.add_argument("filepath", help="Path to markdown document (e.g., knowledge-base/doc.md or ./knowledge-base/doc.md)")
         p_add.add_argument("--keywords", help="Path to keywords JSON file (default: <filepath>.keywords.json)")
 
         p_update = subparsers.add_parser("update", help="Update existing document",
                                          description="Update an existing document's keywords and metadata")
-        p_update.add_argument("filepath", help="Path to markdown document (e.g., ../knowledge-base/doc.md)")
+        p_update.add_argument("filepath", help="Path to markdown document (e.g., knowledge-base/doc.md or ./knowledge-base/doc.md)")
         p_update.add_argument("--keywords", help="Path to keywords JSON file (default: <filepath>.keywords.json)")
 
         p_remove = subparsers.add_parser("remove", help="Remove document from index",
