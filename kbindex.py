@@ -20,12 +20,16 @@ from kb_indexer.parser import SimilarityParser
 class CLI:
     """Command-line interface for kbindex."""
 
-    def __init__(self, db_path: str = "kb_index.db"):
+    def __init__(self, db_path: Optional[str] = None):
         """Initialize CLI.
 
         Args:
-            db_path: Path to SQLite database
+            db_path: Path to SQLite database (default: kb_index.db in script directory)
         """
+        if db_path is None:
+            # Default to kb_index.db in the same directory as kbindex.py
+            script_dir = Path(__file__).parent
+            db_path = str(script_dir / "kb_index.db")
         self.db_path = db_path
         self.db: Optional[Database] = None
 

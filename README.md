@@ -161,7 +161,7 @@ The CLI provides comprehensive help messages with:
 # Sync entire knowledge-base directory (recommended - uses AI to generate keywords)
 # Automatically generates/updates .keywords.json files using Claude Code CLI
 # Looks for knowledge-base/ in project root, can be a symlink or actual directory
-# Can be run from any directory - uses database in kb-indexer/kb_index.db
+# Can be run from any directory - kbindex.py uses kb_index.db in its own directory
 ./scripts/sync_kb.sh
 
 # Generate keywords for a single document using AI
