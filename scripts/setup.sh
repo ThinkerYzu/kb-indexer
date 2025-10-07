@@ -113,6 +113,8 @@ if [ -n "$GEMINI_API_KEY" ]; then
 else
     echo -e "${YELLOW}✗ GEMINI_API_KEY not set${NC}"
     echo "  Gemini is optional - only needed if you want to use Google's cloud LLM"
+    echo "  To set up: Get API key from https://aistudio.google.com/apikey"
+    echo "  Then: export GEMINI_API_KEY='your-api-key-here'"
     HAS_GEMINI_KEY=0
 fi
 echo

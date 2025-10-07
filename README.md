@@ -139,6 +139,11 @@ pip install ollama google-genai
 
 # Pull Ollama model (if using Ollama)
 ollama pull llama3.2:3b
+
+# Set up Gemini API key (if using Gemini)
+# Get your API key from: https://aistudio.google.com/apikey
+export GEMINI_API_KEY='your-api-key-here'
+# To make it permanent, add the export line to ~/.bashrc or ~/.zshrc
 ```
 
 The CLI provides comprehensive help messages with:
@@ -146,6 +151,33 @@ The CLI provides comprehensive help messages with:
 - Examples of valid input values
 - Explanation of all options and formats
 - Value ranges for numeric parameters
+
+### AI Backend Setup
+
+**Claude Code CLI** (recommended for keyword generation):
+- Install from: https://claude.com/claude-code
+- No additional configuration needed
+
+**Ollama** (recommended for context matching):
+```bash
+# Install Ollama from: https://ollama.ai
+# Pull the recommended model
+ollama pull llama3.2:3b
+```
+
+**Google Gemini** (optional cloud alternative):
+```bash
+# Install Python package
+pip install google-genai
+
+# Get API key from: https://aistudio.google.com/apikey
+# Set environment variable
+export GEMINI_API_KEY='your-api-key-here'
+
+# To make it permanent, add to your shell config:
+echo 'export GEMINI_API_KEY="your-api-key-here"' >> ~/.bashrc  # or ~/.zshrc
+source ~/.bashrc  # or ~/.zshrc
+```
 
 ## Documentation
 
