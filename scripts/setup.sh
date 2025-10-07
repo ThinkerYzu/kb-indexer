@@ -127,24 +127,33 @@ else
     echo -e "${YELLOW}✗ Database not initialized${NC}"
     HAS_DB=0
 
-    # Interactive mode - offer to initialize database
+    # Interactive mode - ask user
     if [ $INTERACTIVE -eq 1 ]; then
         echo
         read -p "Would you like to initialize the database now? (y/n): " -r INIT_DB
         if [[ $INIT_DB =~ ^[Yy]$ ]]; then
-            if [ -f "$PROJECT_DIR/kbindex.py" ]; then
-                echo "Initializing database..."
-                cd "$PROJECT_DIR"
-                if ./kbindex.py init; then
-                    echo -e "${GREEN}✓ Database initialized successfully${NC}"
-                    HAS_DB=1
-                else
-                    echo -e "${RED}✗ Failed to initialize database${NC}"
-                fi
+            SHOULD_INIT=1
+        else
+            SHOULD_INIT=0
+        fi
+    else
+        # Non-interactive mode - auto-initialize
+        SHOULD_INIT=1
+    fi
+
+    if [ $SHOULD_INIT -eq 1 ]; then
+        if [ -f "$PROJECT_DIR/kbindex.py" ]; then
+            echo "Initializing database..."
+            cd "$PROJECT_DIR"
+            if ./kbindex.py init; then
+                echo -e "${GREEN}✓ Database initialized successfully${NC}"
+                HAS_DB=1
             else
-                echo -e "${RED}✗ kbindex.py not found${NC}"
-                echo "  Make sure you're running this script from the kb-indexer directory"
+                echo -e "${RED}✗ Failed to initialize database${NC}"
             fi
+        else
+            echo -e "${RED}✗ kbindex.py not found${NC}"
+            echo "  Make sure you're running this script from the kb-indexer directory"
         fi
     fi
 fi
