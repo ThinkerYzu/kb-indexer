@@ -603,7 +603,7 @@ Context examples (describe the domain/background):
         p_relate.add_argument("keyword2", help="Second keyword (e.g., 'reinforcement learning')")
         p_relate.add_argument("--type", required=True,
                              help="Similarity type: abbreviation, synonym, related, broader, narrower, alternative")
-        p_relate.add_argument("--context", required=True, help="Background context where keywords are used (e.g., 'machine learning and AI research', 'game AI competitions')")
+        p_relate.add_argument("--context", required=True, help="Background context that explains the meaning of keywords and where they're used (e.g., 'machine learning and AI research', 'game AI competitions')")
         p_relate.add_argument("--score", type=float, default=0.5,
                              help="Similarity strength: 1.0=perfect, 0.8-0.9=very strong, 0.6-0.7=strong, 0.4-0.5=moderate (default: 0.5)")
         p_relate.add_argument("--directional", action="store_true", help="One-way relationship (keyword1 -> keyword2 only)")
