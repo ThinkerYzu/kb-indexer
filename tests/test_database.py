@@ -214,6 +214,47 @@ class TestDatabase(unittest.TestCase):
         docs = self.db.get_documents_by_keyword("AI")
         self.assertEqual(len(docs), 0)
 
+    def test_replace_document_keywords(self):
+        """Test replacing all keywords for a document."""
+        # Add document with initial keywords
+        self.db.add_document("test.md", "Test", "Summary")
+        self.db.add_document_keyword("test.md", "python", "primary")
+        self.db.add_document_keyword("test.md", "django", "tools")
+        self.db.add_document_keyword("test.md", "web development", "concepts")
+
+        # Verify initial keywords
+        keywords = self.db.get_document_keywords("test.md")
+        self.assertEqual(len(keywords), 3)
+        kw_list = [k["keyword"] for k in keywords]
+        self.assertIn("python", kw_list)
+        self.assertIn("django", kw_list)
+        self.assertIn("web development", kw_list)
+
+        # Replace with new set of keywords
+        new_keywords = [
+            ("python", "primary"),
+            ("fastapi", "tools"),
+            ("async programming", "concepts"),
+        ]
+        success = self.db.replace_document_keywords("test.md", new_keywords)
+        self.assertTrue(success)
+
+        # Verify keywords were replaced
+        keywords = self.db.get_document_keywords("test.md")
+        self.assertEqual(len(keywords), 3)
+        kw_list = [k["keyword"] for k in keywords]
+        self.assertIn("python", kw_list)
+        self.assertIn("fastapi", kw_list)
+        self.assertIn("async programming", kw_list)
+        self.assertNotIn("django", kw_list)
+        self.assertNotIn("web development", kw_list)
+
+    def test_replace_document_keywords_not_found(self):
+        """Test replacing keywords for non-existent document."""
+        new_keywords = [("python", "primary")]
+        success = self.db.replace_document_keywords("nonexistent.md", new_keywords)
+        self.assertFalse(success)
+
 
 if __name__ == "__main__":
     unittest.main()

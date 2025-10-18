@@ -413,6 +413,47 @@ class Database:
         )
         return [dict(row) for row in cursor.fetchall()]
 
+    def replace_document_keywords(self, filepath: str, keywords_data: List[tuple]) -> bool:
+        """Replace all keywords for a document with new set.
+
+        This is useful for re-indexing a document when its keywords have changed.
+        Removes all existing keyword associations and adds the new ones.
+
+        Args:
+            filepath: Document filepath
+            keywords_data: List of (keyword, category) tuples
+
+        Returns:
+            True if document exists and keywords were replaced, False if document not found
+        """
+        # Check if document exists
+        doc = self.get_document(filepath)
+        if not doc:
+            return False
+
+        # Remove all existing keyword associations for this document
+        self.conn.execute(
+            """
+            DELETE FROM document_keywords
+            WHERE document_id = ?
+            """,
+            (doc["id"],)
+        )
+
+        # Add new keywords
+        for keyword, category in keywords_data:
+            keyword_id = self.add_keyword(keyword, category)
+            self.conn.execute(
+                """
+                INSERT INTO document_keywords (document_id, keyword_id)
+                VALUES (?, ?)
+                """,
+                (doc["id"], keyword_id),
+            )
+
+        self.conn.commit()
+        return True
+
     # ==================== Similarity Operations ====================
 
     def add_similarity(

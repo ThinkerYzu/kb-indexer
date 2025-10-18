@@ -14,12 +14,13 @@ The Knowledge Base Indexer (kbindex) is a pure data tool for indexing documents 
 
 ### Core Modules Implemented
 
-1. **database.py** (650 lines)
+1. **database.py** (663 lines)
    - Complete SQLite CRUD operations
    - Document, keyword, and similarity management
    - Automatic keyword normalization
    - Foreign key constraints and cascading deletes
    - Statistics and query operations
+   - `replace_document_keywords()` for atomic keyword updates
 
 2. **parser.py** (270 lines)
    - KeywordParser for .keywords.json files
@@ -41,10 +42,11 @@ The Knowledge Base Indexer (kbindex) is a pure data tool for indexing documents 
 
 ### Test Suite
 
-**40 unit tests** covering all functionality:
-- 16 database operation tests
+**61 unit tests** covering all functionality:
+- 18 database operation tests
 - 12 parser tests (keywords, similarities, markdown)
 - 12 search engine tests
+- 19 real data tests
 
 **All tests passing** ✅
 
@@ -73,9 +75,24 @@ The Knowledge Base Indexer (kbindex) is a pure data tool for indexing documents 
 - `search` - Search documents (OR/AND modes)
 - `db-stats` - Database statistics
 
-## Recent Updates (2025-10-06)
+## Recent Updates
 
-### CLI Improvements
+### 2025-10-18: Keyword Update Bug Fix
+1. **Fixed `update` command to sync keywords**
+   - **Bug:** `update` command only updated title/summary, ignored keywords changes
+   - **Root cause:** No test coverage for keyword updating
+   - **Fix:** Added `replace_document_keywords()` method to database.py
+   - **Impact:** `update` command now replaces all document keywords from .keywords.json
+   - **Tests added:** 2 new tests (`test_replace_document_keywords`, `test_replace_document_keywords_not_found`)
+   - **Result:** Total tests increased from 59 to 61, all passing
+
+2. **New Database Method: `replace_document_keywords()`**
+   - Location: database.py:416-455
+   - Atomically removes all existing keywords and adds new set
+   - Used by `update` command to sync keywords with .keywords.json
+   - Prevents keyword drift between files and database
+
+### 2025-10-06: CLI Improvements
 1. **Enhanced Help Messages**
    - Added detailed descriptions for all subcommands
    - Included concrete examples for all arguments (e.g., 'RL', 'game AI and competitions')

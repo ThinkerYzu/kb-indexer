@@ -153,6 +153,20 @@ class CLI:
             print(f"Document not found: {kw_data['filepath']}", file=sys.stderr)
             return 1
 
+        # Update keywords - replace all keywords with new set from keywords file
+        categories = kw_data.get("categories", {})
+        keywords_data = []
+        for keyword in kw_data["keywords"]:
+            # Find category for this keyword
+            category = None
+            for cat_name, cat_keywords in categories.items():
+                if keyword.lower() in [k.lower() for k in cat_keywords]:
+                    category = cat_name
+                    break
+            keywords_data.append((keyword, category))
+
+        self.db.replace_document_keywords(kw_data["filepath"], keywords_data)
+
         print(f"Updated document: {kw_data['filepath']}")
         return 0
 

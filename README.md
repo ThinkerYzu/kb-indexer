@@ -204,7 +204,7 @@ source ~/.bashrc  # or ~/.zshrc
 # Add single document (requires .keywords.json file)
 ./kbindex.py add knowledge-base/my-doc.md
 
-# Update existing document
+# Update existing document (syncs title, summary, AND keywords from .keywords.json)
 ./kbindex.py update knowledge-base/my-doc.md
 
 # Remove document from index
