@@ -2,6 +2,18 @@
   "filepath": "ai-llm-vs-reinforcement-learning.md",
   "title": "AI: LLMs vs Reinforcement Learning - Richard Sutton's Perspective",
   "summary": "Richard Sutton argues LLMs are dead end for AGI; true intelligence requires experience learning through direct world interaction, not text prediction.",
+  "questions": [
+    "What does Richard Sutton think about LLMs for achieving AGI?",
+    "Why does Richard Sutton believe reinforcement learning is better than LLMs?",
+    "How does experience learning differ from text prediction?",
+    "What is the perception-action-reward cycle in reinforcement learning?",
+    "What are world models and how do they relate to AGI?",
+    "How did AlphaGo demonstrate reinforcement learning capabilities?",
+    "What is the bitter lesson in AI research?",
+    "Why is trial and error important for artificial intelligence?",
+    "What are the limitations of LLMs according to Richard Sutton?",
+    "How does direct world interaction contribute to true intelligence?"
+  ],
   "keywords": [
     "reinforcement learning",
     "RL",

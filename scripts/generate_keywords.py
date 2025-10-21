@@ -2,7 +2,12 @@
 """
 Generate keywords.json file for a markdown document using LLM.
 
-Uses Ollama by default (local, free) with fallback to Gemini (cloud, API key required).
+The script generates:
+1. 10 questions that people might ask that the document can answer
+2. Keywords based on what terms users asking those questions might search for
+3. Metadata including title, summary, and categorized keywords
+
+Uses Claude Code by default, with fallback to Ollama (local) or Gemini (cloud).
 """
 
 import json
@@ -47,6 +52,11 @@ TASK: Generate a JSON object with this exact structure:
   "filepath": "filename.md",
   "title": "Document title (extract from content or create descriptive title)",
   "summary": "2-3 sentence summary of the document's main points",
+  "questions": [
+    "Question 1 that someone might ask that this document answers?",
+    "Question 2 that someone might ask that this document answers?",
+    ... (exactly 10 questions)
+  ],
   "keywords": ["keyword1", "keyword2", ...],
   "categories": {{
     "primary": ["main topics"],
@@ -57,13 +67,22 @@ TASK: Generate a JSON object with this exact structure:
 }}
 
 GUIDELINES:
-- Extract 10-30 keywords covering main topics, concepts, tools, technologies
-- Include both specific terms and general concepts
-- Include abbreviations separately in the abbreviations category
-- Make the summary concise but informative
-- Use lowercase for keywords unless they are proper nouns or abbreviations
-- The title should be clear, descriptive, and in Title Case (capitalize major words)
-- If the document has a title header (# Title), use it; otherwise create one
+1. FIRST, generate exactly 10 questions that people might ask that this document can answer
+   - Questions should be natural, as users would phrase them
+   - Cover different aspects and use cases of the document
+   - Think about what problems or needs would lead someone to this document
+
+2. THEN, generate keywords based on what terms users asking those questions might search for
+   - Extract 15-30 keywords total
+   - Include terms from the questions and document content
+   - Include both specific terms and general concepts
+   - Include abbreviations separately in the abbreviations category
+   - Use lowercase for keywords unless they are proper nouns or abbreviations
+
+3. Other metadata:
+   - Make the summary concise but informative (2-3 sentences)
+   - The title should be clear, descriptive, and in Title Case (capitalize major words)
+   - If the document has a title header (# Title), use it; otherwise create one
 
 IMPORTANT: Return ONLY a valid JSON object. Do not include any code, explanations, or other text.
 
@@ -119,6 +138,11 @@ TASK: Generate a JSON object with this exact structure:
   "filepath": "filename.md",
   "title": "Document title (extract from content or create descriptive title)",
   "summary": "2-3 sentence summary of the document's main points",
+  "questions": [
+    "Question 1 that someone might ask that this document answers?",
+    "Question 2 that someone might ask that this document answers?",
+    ... (exactly 10 questions)
+  ],
   "keywords": ["keyword1", "keyword2", ...],
   "categories": {{
     "primary": ["main topics"],
@@ -129,13 +153,22 @@ TASK: Generate a JSON object with this exact structure:
 }}
 
 GUIDELINES:
-- Extract 10-30 keywords covering main topics, concepts, tools, technologies
-- Include both specific terms and general concepts
-- Include abbreviations separately in the abbreviations category
-- Make the summary concise but informative
-- Use lowercase for keywords unless they are proper nouns or abbreviations
-- The title should be clear, descriptive, and in Title Case (capitalize major words)
-- If the document has a title header (# Title), use it; otherwise create one
+1. FIRST, generate exactly 10 questions that people might ask that this document can answer
+   - Questions should be natural, as users would phrase them
+   - Cover different aspects and use cases of the document
+   - Think about what problems or needs would lead someone to this document
+
+2. THEN, generate keywords based on what terms users asking those questions might search for
+   - Extract 15-30 keywords total
+   - Include terms from the questions and document content
+   - Include both specific terms and general concepts
+   - Include abbreviations separately in the abbreviations category
+   - Use lowercase for keywords unless they are proper nouns or abbreviations
+
+3. Other metadata:
+   - Make the summary concise but informative (2-3 sentences)
+   - The title should be clear, descriptive, and in Title Case (capitalize major words)
+   - If the document has a title header (# Title), use it; otherwise create one
 
 IMPORTANT: Return ONLY a valid JSON object. Do not include any code, explanations, or other text.
 
@@ -171,6 +204,11 @@ def generate_keywords_with_claude(content: str, md_filepath: str) -> Dict:
   "filepath": "{basename}",
   "title": "Document title (extract from content or create descriptive title in Title Case)",
   "summary": "2-3 sentence summary of the document's main points",
+  "questions": [
+    "Question 1 that someone might ask that this document answers?",
+    "Question 2 that someone might ask that this document answers?",
+    ... (exactly 10 questions)
+  ],
   "keywords": ["keyword1", "keyword2", ...],
   "categories": {{
     "primary": ["main topics"],
@@ -181,14 +219,26 @@ def generate_keywords_with_claude(content: str, md_filepath: str) -> Dict:
 }}
 
 Guidelines:
-- Extract 10-30 keywords covering main topics, concepts, tools, technologies
-- Include both specific terms and general concepts
-- Use lowercase for keywords unless they are proper nouns or abbreviations
-- If the document has a title header (# Title), use it; otherwise create one
-- CRITICAL: Categories MUST only contain keywords that are EXACTLY as they appear in the main "keywords" list
-- Categories organize existing keywords only - do NOT add new keywords in categories
-- Every keyword in categories must have an exact match in the keywords array (same spelling, same capitalization)
-- Example: If keywords contains "api integration", you cannot use just "api" in categories
+1. FIRST, generate exactly 10 questions that people might ask that this document can answer
+   - Questions should be natural, as users would phrase them
+   - Cover different aspects and use cases of the document
+   - Think about what problems or needs would lead someone to this document
+
+2. THEN, generate keywords based on what terms users asking those questions might search for
+   - Extract 15-30 keywords total
+   - Include terms from the questions and document content
+   - Include both specific terms and general concepts
+   - Use lowercase for keywords unless they are proper nouns or abbreviations
+
+3. Categories and validation:
+   - CRITICAL: Categories MUST only contain keywords that are EXACTLY as they appear in the main "keywords" list
+   - Categories organize existing keywords only - do NOT add new keywords in categories
+   - Every keyword in categories must have an exact match in the keywords array (same spelling, same capitalization)
+   - Example: If keywords contains "api integration", you cannot use just "api" in categories
+
+4. Other metadata:
+   - Make the summary concise but informative (2-3 sentences)
+   - If the document has a title header (# Title), use it; otherwise create one
 
 Return ONLY the JSON object, no other text or markdown formatting.
 

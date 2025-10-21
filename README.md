@@ -301,6 +301,11 @@ Create `<filename>.keywords.json` alongside your markdown:
   "filepath": "my-doc.md",
   "title": "Document Title",
   "summary": "Brief description of the document",
+  "questions": [
+    "Question 1 that someone might ask that this document answers?",
+    "Question 2 that someone might ask that this document answers?",
+    "... (10 questions total)"
+  ],
   "keywords": [
     "keyword1",
     "keyword2",
@@ -312,6 +317,8 @@ Create `<filename>.keywords.json` alongside your markdown:
   }
 }
 ```
+
+**Note**: The `questions` field is optional but recommended. When using `generate_keywords.py`, it automatically generates 10 questions that people might ask that the document can answer, then derives keywords from what terms users asking those questions would search for. This creates more user-centric keywords aligned with actual search behavior.
 
 ### Similarities JSON
 
