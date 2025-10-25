@@ -31,17 +31,11 @@ class SearchEngine:
         """
         docs = self.db.get_documents_by_keyword(keyword)
 
-        # Add matched_keywords field
+        # Add matched_keywords field - show the user-given keyword that found the doc
+        normalized_query = self.db._normalize_keyword(keyword)
         for doc in docs:
-            doc_keywords = self.db.get_document_keywords(doc["filepath"])
-            # Find which keywords matched (normalized comparison)
-            normalized_query = self.db._normalize_keyword(keyword)
-            matched = [
-                kw["keyword"]
-                for kw in doc_keywords
-                if kw["keyword"] == normalized_query
-            ]
-            doc["matched_keywords"] = matched
+            doc["matched_keywords"] = [normalized_query]
+            doc["user_keywords"] = [keyword]  # Original user-provided keyword
 
         return docs
 
@@ -64,6 +58,7 @@ class SearchEngine:
                 if filepath not in doc_map:
                     doc_map[filepath] = doc
                     doc_map[filepath]["matched_keywords"] = []
+                    doc_map[filepath]["user_keywords"] = []
 
         # Add matched keywords for each document
         for filepath, doc in doc_map.items():
@@ -72,12 +67,15 @@ class SearchEngine:
 
             # Find which query keywords matched
             matched = []
+            user_kws = []
             for query_kw in keywords:
                 normalized = self.db._normalize_keyword(query_kw)
                 if normalized in doc_kw_set:
                     matched.append(normalized)
+                    user_kws.append(query_kw)
 
             doc["matched_keywords"] = matched
+            doc["user_keywords"] = user_kws
 
         # Return sorted by filepath
         return sorted(doc_map.values(), key=lambda d: d["filepath"])
@@ -111,6 +109,7 @@ class SearchEngine:
             # Check if all query keywords are in this document
             if all(kw in doc_kw_set for kw in normalized_keywords):
                 doc["matched_keywords"] = normalized_keywords
+                doc["user_keywords"] = keywords  # Original user-provided keywords
                 matching_docs.append(doc)
 
         return matching_docs
@@ -211,6 +210,7 @@ class SearchEngine:
                     "title": doc.get("title"),
                     "summary": doc.get("summary"),
                     "matched_keywords": doc.get("matched_keywords", []),
+                    "user_keywords": doc.get("user_keywords", []),
                 }
                 for doc in results
             ],

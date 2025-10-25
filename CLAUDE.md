@@ -119,6 +119,7 @@ The `query` command provides advanced question-based document retrieval:
 
 **Features:**
 - **Keyword expansion** using similarity relationships (default: 1 level)
+- **Expansion tracking** - shows which user keyword expanded to which similar keyword
 - LLM-powered relevance scoring of documents based on user's question
 - Automatic grep fallback for searching unindexed files
 - **AUTO-INDEXING** of unindexed documents (includes query keywords)
@@ -130,6 +131,12 @@ The `query` command provides advanced question-based document retrieval:
 - `--expand-depth 0` to disable expansion
 - `--suggest-only` to preview suggestions without applying
 - `--no-learn` to disable learning entirely
+
+**Output Format:**
+- Shows which user-provided keywords found each document
+- For expanded keywords, displays the expansion chain (e.g., "RL → reinforcement learning")
+- JSON output includes `expansion_map`, `user_keywords`, and `keyword_expansions` fields
+- Human-readable output: "Found by: RL → reinforcement learning, AlphaGo"
 
 **Usage:**
 ```bash

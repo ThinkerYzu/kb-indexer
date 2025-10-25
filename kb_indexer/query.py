@@ -235,7 +235,7 @@ Your answer:"""
         context: Optional[str] = None,
         depth: int = 1,
         context_threshold: float = 0.7
-    ) -> List[str]:
+    ) -> Tuple[List[str], Dict[str, List[str]]]:
         """
         Expand keywords using similarity relationships.
 
@@ -246,18 +246,41 @@ Your answer:"""
             context_threshold: Minimum context match score when filtering by context
 
         Returns:
-            Expanded list of keywords (includes original keywords)
+            Tuple of (expanded_keywords, expansion_map)
+            - expanded_keywords: List of all keywords (includes original keywords)
+            - expansion_map: Dict mapping each original keyword to its expanded keywords
         """
         if depth == 0:
-            return keywords
+            # No expansion - map each keyword to itself
+            normalized = [self.db._normalize_keyword(kw) for kw in keywords]
+            expansion_map = {self.db._normalize_keyword(kw): [] for kw in keywords}
+            return normalized, expansion_map
 
-        expanded = set(self.db._normalize_keyword(kw) for kw in keywords)
-        current_level = set(expanded)
+        # Track expansion mapping: original_keyword -> [expanded keywords]
+        expansion_map: Dict[str, List[str]] = {}
+
+        # Normalize original keywords
+        original_normalized = [self.db._normalize_keyword(kw) for kw in keywords]
+
+        # Initialize expansion map
+        for orig_kw in original_normalized:
+            expansion_map[orig_kw] = []
+
+        expanded = set(original_normalized)
+        current_level = set(original_normalized)
+
+        # Track which original keyword led to each expansion
+        keyword_origin: Dict[str, str] = {}
+        for orig_kw in original_normalized:
+            keyword_origin[orig_kw] = orig_kw
 
         for level in range(depth):
             next_level = set()
 
             for keyword in current_level:
+                # Get the original keyword this came from
+                origin = keyword_origin.get(keyword, keyword)
+
                 # Get all similar keywords (all types)
                 similar_keywords = self.db.get_similar_keywords(keyword, similarity_type=None)
 
@@ -282,12 +305,17 @@ Your answer:"""
                     if related_kw not in expanded:
                         next_level.add(related_kw)
                         expanded.add(related_kw)
+                        keyword_origin[related_kw] = origin
+
+                        # Add to expansion map
+                        if origin in expansion_map:
+                            expansion_map[origin].append(related_kw)
 
             current_level = next_level
             if not current_level:
                 break  # No more expansions found
 
-        return list(expanded)
+        return list(expanded), expansion_map
 
     def search_with_keywords(
         self,
@@ -296,7 +324,7 @@ Your answer:"""
         context: str,
         threshold: float = 0.7,
         expand_depth: int = 1
-    ) -> List[Dict]:
+    ) -> Tuple[List[Dict], Dict[str, List[str]]]:
         """
         Search documents by keywords and filter by LLM relevance.
 
@@ -308,19 +336,29 @@ Your answer:"""
             expand_depth: Number of levels to expand keywords (default: 1)
 
         Returns:
-            List of relevant documents with scores
+            Tuple of (scored_results, expansion_map)
+            - scored_results: List of relevant documents with scores
+            - expansion_map: Dict mapping original keywords to their expansions
         """
         # Expand keywords using similarities
-        expanded_keywords = self.expand_keywords(
+        expanded_keywords, expansion_map = self.expand_keywords(
             keywords=keywords,
             context=context,
             depth=expand_depth
         )
 
+        # Create reverse map: expanded_keyword -> original_keyword
+        reverse_map: Dict[str, str] = {}
+        normalized_originals = [self.db._normalize_keyword(kw) for kw in keywords]
+        for orig_kw in normalized_originals:
+            reverse_map[orig_kw] = orig_kw  # Original maps to itself
+            for expanded_kw in expansion_map.get(orig_kw, []):
+                reverse_map[expanded_kw] = orig_kw
+
         # Search by expanded keywords (OR mode)
         results = self.search_engine.search_by_keywords_or(expanded_keywords)
 
-        # Score each document
+        # Score each document and track expansion
         scored_results = []
         for doc in results:
             doc_keywords = self.db.get_document_keywords(doc["filepath"])
@@ -335,11 +373,29 @@ Your answer:"""
             )
 
             if is_relevant and score >= threshold:
+                # Map matched keywords back to original keywords
+                matched = doc.get("matched_keywords", [])
+                user_keywords = []
+                keyword_expansions = []
+
+                for matched_kw in matched:
+                    orig_kw = reverse_map.get(matched_kw, matched_kw)
+                    user_keywords.append(orig_kw)
+
+                    # Check if this was an expansion
+                    if matched_kw != orig_kw:
+                        keyword_expansions.append({
+                            "original": orig_kw,
+                            "expanded": matched_kw
+                        })
+
                 scored_results.append({
                     "filepath": doc["filepath"],
                     "title": doc.get("title"),
                     "summary": doc.get("summary"),
-                    "matched_keywords": doc.get("matched_keywords", []),
+                    "matched_keywords": matched,
+                    "user_keywords": user_keywords,
+                    "keyword_expansions": keyword_expansions,
                     "relevance_score": score,
                     "reasoning": reasoning,
                     "source": "keyword_search"
@@ -348,7 +404,7 @@ Your answer:"""
         # Sort by relevance score (highest first)
         scored_results.sort(key=lambda x: x["relevance_score"], reverse=True)
 
-        return scored_results
+        return scored_results, expansion_map
 
     def grep_search(
         self,
@@ -891,13 +947,19 @@ Your answer (JSON only):"""
             Query results with documents, suggestions, and metadata
         """
         # Phase 1: Keyword search with expansion
-        keyword_results = self.search_with_keywords(
+        keyword_results, expansion_map = self.search_with_keywords(
             question=question,
             keywords=keywords,
             context=context,
             threshold=threshold,
             expand_depth=expand_depth
         )
+
+        # Get expanded keywords from expansion map
+        expanded_keywords = list(set(keywords))
+        if expand_depth > 0:
+            for orig_kw in expansion_map:
+                expanded_keywords.extend(expansion_map[orig_kw])
 
         # Phase 2: Grep fallback if needed
         grep_results = []
@@ -935,18 +997,12 @@ Your answer (JSON only):"""
                 if auto_apply and suggestions:
                     applied = self.apply_learning_suggestions(suggestions)
 
-        # Get expanded keywords for metadata
-        expanded_keywords = self.expand_keywords(
-            keywords=keywords,
-            context=context,
-            depth=expand_depth
-        ) if expand_depth > 0 else keywords
-
         return {
             "query": {
                 "question": question,
                 "keywords": keywords,
                 "expanded_keywords": expanded_keywords if expand_depth > 0 else None,
+                "expansion_map": expansion_map if expand_depth > 0 else None,
                 "context": context,
                 "threshold": threshold,
                 "expand_depth": expand_depth

@@ -464,7 +464,16 @@ class CLI:
                     if doc.get("summary"):
                         summary = doc["summary"][:100] + "..." if len(doc["summary"]) > 100 else doc["summary"]
                         print(f"   Summary: {summary}")
-                    print(f"   Matched: {', '.join(doc['matched_keywords'])}")
+
+                    # Show user keywords and matched keywords
+                    user_kws = doc.get('user_keywords', [])
+                    matched_kws = doc.get('matched_keywords', [])
+
+                    if user_kws:
+                        # Show which user keyword found this document
+                        print(f"   Found by: {', '.join(user_kws)}")
+                    if matched_kws:
+                        print(f"   Matched keywords: {', '.join(matched_kws)}")
                     print()
 
         return 0
@@ -537,8 +546,20 @@ class CLI:
                             print(f"   Summary: {summary}")
                         print(f"   Relevance: {doc['relevance_score']:.2f}")
                         print(f"   Reasoning: {doc['reasoning']}")
+
+                        # Show keyword expansion information
+                        if doc.get("keyword_expansions"):
+                            # Document was found via expanded keywords
+                            expansions_str = []
+                            for exp in doc["keyword_expansions"]:
+                                expansions_str.append(f"{exp['original']} → {exp['expanded']}")
+                            print(f"   Found by: {', '.join(expansions_str)}")
+                        elif doc.get("user_keywords"):
+                            # Document was found via original user keywords
+                            print(f"   Found by: {', '.join(doc['user_keywords'])}")
+
                         if doc.get("matched_keywords"):
-                            print(f"   Keywords: {', '.join(doc['matched_keywords'])}")
+                            print(f"   Doc keywords: {', '.join(doc['matched_keywords'])}")
                         print()
 
                 # Show learning suggestions and application status

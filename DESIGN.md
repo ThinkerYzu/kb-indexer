@@ -351,12 +351,17 @@ All commands support `--format json` for machine-readable output.
       "filepath": "ai-llm-vs-reinforcement-learning.md",
       "title": "AI: LLMs vs Reinforcement Learning",
       "summary": "Richard Sutton argues...",
-      "matched_keywords": ["reinforcement learning", "RL"]
+      "matched_keywords": ["reinforcement learning", "rl"],
+      "user_keywords": ["reinforcement learning"]
     }
   ],
   "count": 1
 }
 ```
+
+**Fields:**
+- `matched_keywords`: Normalized keywords from the document that matched the search
+- `user_keywords`: Original keywords provided by the user that led to finding this document
 
 ### Similar Keywords
 
@@ -404,6 +409,54 @@ All commands support `--format json` for machine-readable output.
   "updated_at": "2025-10-04T22:00:00"
 }
 ```
+
+### Query Results (with Keyword Expansion)
+
+```json
+{
+  "query": {
+    "question": "How does AlphaGo work?",
+    "keywords": ["RL", "AlphaGo"],
+    "expanded_keywords": ["rl", "reinforcement learning", "q-learning", "alphago"],
+    "expansion_map": {
+      "rl": ["reinforcement learning", "q-learning"],
+      "alphago": []
+    },
+    "context": "game AI",
+    "threshold": 0.7,
+    "expand_depth": 1
+  },
+  "results": [
+    {
+      "filepath": "alphago-architecture.md",
+      "title": "AlphaGo Architecture",
+      "summary": "Deep dive into AlphaGo's architecture...",
+      "matched_keywords": ["reinforcement learning", "alphago"],
+      "user_keywords": ["rl", "alphago"],
+      "keyword_expansions": [
+        {
+          "original": "rl",
+          "expanded": "reinforcement learning"
+        }
+      ],
+      "relevance_score": 0.92,
+      "reasoning": "Directly discusses AlphaGo's use of RL techniques",
+      "source": "keyword_search"
+    }
+  ],
+  "count": 1,
+  "keyword_search_count": 1,
+  "grep_search_count": 0
+}
+```
+
+**Fields:**
+- `query.expanded_keywords`: All keywords after expansion (includes original + similar keywords)
+- `query.expansion_map`: Maps each original keyword to its expanded keywords
+- `results[].user_keywords`: Original keywords from user that led to finding this document
+- `results[].keyword_expansions`: List showing which user keywords were expanded (original → expanded)
+- `results[].matched_keywords`: Actual document keywords that matched
+- `results[].source`: "keyword_search" or "grep_search"
 
 ---
 

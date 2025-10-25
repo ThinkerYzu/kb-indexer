@@ -229,9 +229,14 @@ source ~/.bashrc  # or ~/.zshrc
 # Multiple keywords (AND - all must match)
 ./kbindex.py search "LLM" "AGI" --and
 
-# Get results as JSON
+# Get results as JSON (includes user_keywords showing which keywords found each document)
 ./kbindex.py search "AGI" --format json
 ```
+
+**Output includes:**
+- `user_keywords`: Shows which of your search keywords found each document
+- `matched_keywords`: Shows the actual document keywords that matched
+- Human-readable format displays: "Found by: AGI, artificial intelligence"
 
 ### Intelligent Query (Question-Based Search)
 
@@ -295,13 +300,20 @@ The `query` command provides advanced question-based search with LLM-powered rel
 **Query Workflow:**
 1. **EXPANDS keywords** using similarity relationships (1 level by default, configurable)
 2. Searches documents using expanded keywords
-3. Scores each document's relevance to your question using LLM
-4. If no results, falls back to grep search across all files
-5. **AUTO-INDEXES** unindexed documents found via grep (generates keywords automatically, including query keywords)
-6. **LEARNS** (only if keyword search failed but grep succeeded): Adds query keywords to found documents
+3. **TRACKS expansion chain** - shows which user keyword expanded to which similar keyword
+4. Scores each document's relevance to your question using LLM
+5. If no results, falls back to grep search across all files
+6. **AUTO-INDEXES** unindexed documents found via grep (generates keywords automatically, including query keywords)
+7. **LEARNS** (only if keyword search failed but grep succeeded): Adds query keywords to found documents
    - As similarities to existing keywords for indexed documents
    - As direct keywords for newly auto-indexed documents
-7. **AUTO-APPLIES** learning suggestions to the database by default
+8. **AUTO-APPLIES** learning suggestions to the database by default
+
+**Output includes:**
+- `expansion_map`: Shows how each original keyword was expanded (e.g., "rl" → ["reinforcement learning", "q-learning"])
+- `keyword_expansions`: For each document, shows which keywords were found via expansion (e.g., "RL → reinforcement learning")
+- `user_keywords`: Original keywords you provided that led to finding each document
+- Human-readable format displays: "Found by: RL → reinforcement learning"
 
 **Keyword Expansion:**
 - Automatically finds similar keywords (e.g., "RL" → "reinforcement learning", "Q-learning")

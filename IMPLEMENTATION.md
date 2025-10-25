@@ -77,6 +77,45 @@ The Knowledge Base Indexer (kbindex) is a pure data tool for indexing documents 
 
 ## Recent Updates
 
+### 2025-10-25: Enhanced Search Output with Keyword Tracking
+
+**Feature:** Search and query commands now show which user-provided keywords found each document, including expansion chains.
+
+**Changes Made:**
+
+1. **Search Module Enhancements** (search.py)
+   - Added `user_keywords` field to track original user-provided keywords
+   - Updated all search methods: `search_by_keyword()`, `search_by_keywords_or()`, `search_by_keywords_and()`
+   - `format_search_results()` now includes both `matched_keywords` and `user_keywords` in JSON output
+
+2. **Query Engine Enhancements** (query.py)
+   - Modified `expand_keywords()` to return tuple: `(expanded_keywords, expansion_map)`
+   - `expansion_map` tracks: `{original_keyword: [expanded_keywords]}`
+   - Updated `search_with_keywords()` to return: `(results, expansion_map)`
+   - Added `keyword_expansions` field to results showing: `{original: "RL", expanded: "reinforcement learning"}`
+   - Query results include `expansion_map` in JSON output
+
+3. **CLI Output Improvements** (kbindex.py)
+   - **Search command:** Shows "Found by: RL, machine learning" and "Matched keywords: rl, machine learning"
+   - **Query command:** Shows expansion chains: "Found by: RL → reinforcement learning"
+   - Clear separation between user input and matched document keywords
+
+4. **Documentation Updates**
+   - Updated DESIGN.md with new output format examples
+   - Added "Query Results (with Keyword Expansion)" section
+   - Updated README.md with output descriptions
+   - Updated CLAUDE.md with new features
+
+**Benefits:**
+- Full transparency about how documents were found
+- Clear distinction between user keywords and document keywords
+- Visible keyword expansion chain helps understand similarity relationships
+- Better debugging and understanding of search behavior
+
+**Test Coverage:**
+- Updated 2 tests in test_query.py
+- All 75 tests passing ✅
+
 ### 2025-10-18: Keyword Update Bug Fix
 1. **Fixed `update` command to sync keywords**
    - **Bug:** `update` command only updated title/summary, ignored keywords changes

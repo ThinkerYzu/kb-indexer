@@ -187,7 +187,7 @@ DQN combines Q-learning with deep neural networks.
                 backend="ollama"
             )
 
-            results = engine.search_with_keywords(
+            results, expansion_map = engine.search_with_keywords(
                 question="How does reinforcement learning work?",
                 keywords=["reinforcement learning"],
                 context="machine learning algorithms",
@@ -198,6 +198,9 @@ DQN combines Q-learning with deep neural networks.
             self.assertEqual(len(results), 2)
             self.assertEqual(results[0]["relevance_score"], 0.9)
             self.assertEqual(results[1]["relevance_score"], 0.85)
+
+            # Check expansion map exists
+            self.assertIsNotNone(expansion_map)
 
     def test_extract_search_terms(self):
         """Test search term extraction from question."""
@@ -447,7 +450,7 @@ DQN combines Q-learning with deep neural networks.
             )
 
             # Test 1-level expansion
-            expanded = engine.expand_keywords(
+            expanded, expansion_map = engine.expand_keywords(
                 keywords=["RL"],
                 context="machine learning",
                 depth=1
@@ -457,8 +460,12 @@ DQN combines Q-learning with deep neural networks.
             self.assertIn("rl", expanded)  # normalized
             self.assertIn("reinforcement learning", expanded)
 
+            # Check expansion map
+            self.assertIn("rl", expansion_map)
+            self.assertIn("reinforcement learning", expansion_map["rl"])
+
             # Test 2-level expansion
-            expanded_2 = engine.expand_keywords(
+            expanded_2, expansion_map_2 = engine.expand_keywords(
                 keywords=["RL"],
                 context="machine learning",
                 depth=2
@@ -470,12 +477,14 @@ DQN combines Q-learning with deep neural networks.
             self.assertIn("q-learning", expanded_2)
 
             # Test no expansion
-            not_expanded = engine.expand_keywords(
+            not_expanded, not_expansion_map = engine.expand_keywords(
                 keywords=["RL"],
                 context="machine learning",
                 depth=0
             )
             self.assertEqual(len(not_expanded), 1)
+            self.assertEqual(len(not_expansion_map), 1)
+            self.assertEqual(not_expansion_map["rl"], [])
 
     def test_auto_apply_suggestions(self):
         """Test automatic application of learning suggestions."""
