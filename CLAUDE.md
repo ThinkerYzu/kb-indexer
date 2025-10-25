@@ -106,8 +106,66 @@ kb-indexer/
 │   ├── database.py         # SQLite operations
 │   ├── parser.py           # JSON/markdown parsing
 │   ├── search.py           # Search engine
+│   ├── query.py            # Intelligent query engine with LLM filtering
 │   └── context_matcher.py  # LLM-based context matching
-├── tests/                  # Test suite (59 tests)
+├── tests/                  # Test suite (70+ tests)
 ├── scripts/                # Helper scripts
 └── examples/               # Example data files
 ```
+
+## Query Command
+
+The `query` command provides advanced question-based document retrieval:
+
+**Features:**
+- **Keyword expansion** using similarity relationships (default: 1 level)
+- LLM-powered relevance scoring of documents based on user's question
+- Automatic grep fallback for searching unindexed files
+- **AUTO-INDEXING** of unindexed documents (includes query keywords)
+- **SMART LEARNING** - only triggers when keyword search fails but grep succeeds
+  - Adds query keywords to found documents as similarities or direct keywords
+  - Automatically applied by default
+- Configurable relevance threshold (default: 0.7)
+- Configurable expansion depth (default: 1)
+- `--expand-depth 0` to disable expansion
+- `--suggest-only` to preview suggestions without applying
+- `--no-learn` to disable learning entirely
+
+**Usage:**
+```bash
+./kbindex.py query "How does AlphaGo work?" \
+  --keywords "reinforcement learning" "AlphaGo" \
+  --context "game AI" \
+  --threshold 0.7
+```
+
+**Implementation Details:**
+- QueryEngine (kb_indexer/query.py) orchestrates the workflow
+- **Default LLM: Ollama** (also supports Claude Code CLI/Gemini)
+- **Keyword expansion**: expand_keywords() method
+  - Recursively expands keywords using database similarity relationships
+  - Supports multi-level expansion (configurable depth)
+  - Simple context filtering (30% word overlap threshold)
+- Grep searches knowledge-base directory for files matching extracted terms
+- **Auto-indexing**: Unindexed documents found via grep are automatically indexed
+  - Uses LLM to generate keywords from document content
+  - **Includes query keywords** that led to finding the document
+  - Falls back to extracting keywords from title/summary if LLM fails
+  - auto_index_document(filepath, query_keywords) method handles the indexing
+- **Smart Learning** (_generate_query_based_suggestions method):
+  - **Only triggers** when keyword_search_count == 0 and grep_search_count > 0
+  - For indexed documents: adds query keywords as **similarities** to existing keywords
+  - For newly indexed documents: query keywords already added during auto-indexing
+  - Reasoning: If grep found it but keywords didn't, the index needs those query keywords
+- **Auto-apply by default**: New keywords and similarities are automatically added to database
+  - Use `--suggest-only` to preview without applying
+  - Use `--no-learn` to disable learning entirely
+- Auto-indexed files are marked with `[AUTO-INDEXED ✓]` in output
+- Expanded keywords are shown in output (e.g., "Expanded: +3 similar keywords")
+- apply_learning_suggestions() method handles database updates
+- Duplicate prevention: checks existing keywords/similarities before adding
+
+**LLM Backends:**
+- `ollama` (default): Local Ollama - requires ollama installation and model download (free)
+- `claude`: Claude Code CLI - requires `claude` command available
+- `gemini`: Google Gemini API - requires GEMINI_API_KEY environment variable

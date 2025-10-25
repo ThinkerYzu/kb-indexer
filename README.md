@@ -233,6 +233,98 @@ source ~/.bashrc  # or ~/.zshrc
 ./kbindex.py search "AGI" --format json
 ```
 
+### Intelligent Query (Question-Based Search)
+
+The `query` command provides advanced question-based search with LLM-powered relevance filtering, automatic grep fallback, and learning suggestions:
+
+```bash
+# Basic query with question, keywords, and context
+./kbindex.py query "How does AlphaGo use reinforcement learning?" \
+  --keywords "reinforcement learning" "AlphaGo" \
+  --context "game AI and competitions"
+
+# Adjust relevance threshold (0.0-1.0)
+./kbindex.py query "What is Q-learning?" \
+  --keywords "reinforcement learning" "Q-learning" \
+  --context "machine learning algorithms" \
+  --threshold 0.8  # Higher = stricter filtering
+
+# Query with abbreviation - automatically expands to full term
+./kbindex.py query "What is RL?" \
+  --keywords "RL" \
+  --context "machine learning"
+# → Automatically expands "RL" to include "reinforcement learning", "Q-learning", etc.
+
+# Disable keyword expansion (exact match only)
+./kbindex.py query "What is RL?" \
+  --keywords "RL" \
+  --context "machine learning" \
+  --expand-depth 0
+
+# Deep expansion (2 levels)
+./kbindex.py query "What is RL?" \
+  --keywords "RL" \
+  --context "machine learning" \
+  --expand-depth 2
+
+# Preview suggestions without applying (review mode)
+./kbindex.py query "Explain neural networks" \
+  --keywords "neural networks" "deep learning" \
+  --context "machine learning" \
+  --suggest-only
+
+# Disable learning entirely
+./kbindex.py query "What are GANs?" \
+  --keywords "GAN" "neural networks" \
+  --context "generative models" \
+  --no-learn
+
+# Use different LLM backend
+./kbindex.py query "What is DQN?" \
+  --keywords "reinforcement learning" "Q-learning" \
+  --context "deep RL" \
+  --llm-backend claude  # or "gemini" (default: ollama)
+
+# JSON output for programmatic use
+./kbindex.py query "Explain transformers" \
+  --keywords "transformer" "attention" \
+  --context "natural language processing" \
+  --format json
+```
+
+**Query Workflow:**
+1. **EXPANDS keywords** using similarity relationships (1 level by default, configurable)
+2. Searches documents using expanded keywords
+3. Scores each document's relevance to your question using LLM
+4. If no results, falls back to grep search across all files
+5. **AUTO-INDEXES** unindexed documents found via grep (generates keywords automatically, including query keywords)
+6. **LEARNS** (only if keyword search failed but grep succeeded): Adds query keywords to found documents
+   - As similarities to existing keywords for indexed documents
+   - As direct keywords for newly auto-indexed documents
+7. **AUTO-APPLIES** learning suggestions to the database by default
+
+**Keyword Expansion:**
+- Automatically finds similar keywords (e.g., "RL" → "reinforcement learning", "Q-learning")
+- Default: 1 level of expansion
+- `--expand-depth 0`: Disable expansion (exact match only)
+- `--expand-depth 2`: Two levels (finds similar keywords of similar keywords)
+
+**Learning Behavior:**
+- Learning **only triggers** when keyword search (with expansion) finds nothing but grep finds relevant documents
+- This indicates the index needs improvement for those query keywords
+- **Query keywords are automatically added** to found documents:
+  - As **similarities** to existing document keywords (if document is indexed)
+  - As **direct keywords** for newly auto-indexed documents
+- **Default**: Suggestions are automatically applied to improve the index
+- `--suggest-only`: Preview suggestions without applying (review mode)
+- `--no-learn`: Disable learning entirely
+
+**Threshold Guidelines:**
+- `0.9-1.0`: Very strict (only documents that directly answer the question)
+- `0.7-0.8`: Balanced (recommended, filters out unrelated documents)
+- `0.5-0.6`: Relaxed (includes tangentially related documents)
+- `0.3-0.4`: Very relaxed (includes loosely related documents)
+
 ### Working with Similarities
 
 ```bash
@@ -367,7 +459,7 @@ kbindex is designed to be used by AI agents. Example workflow:
 **LLM Backend Strategy:**
 The project uses different LLMs strategically to balance quality and cost:
 - **Claude Code** (sync_kb.sh): High-quality keyword generation - run once per document, quality matters most
-- **Ollama** (similar command default): Cost-free context matching with `llama3.2:3b` - run frequently during searches, efficiency matters most
+- **Ollama** (query & similar commands default): Cost-free local processing with `llama3.2:3b` - run frequently during searches, efficiency matters most
 - **Gemini** (optional): Cloud alternative with `gemini-2.0-flash-exp` requiring `GEMINI_API_KEY` environment variable
 
 All output includes rich context for AI decision-making (similarity types, relevance scores, directional flags, context match scores).

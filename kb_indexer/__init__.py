@@ -11,5 +11,6 @@ __author__ = "Claude Code"
 from .database import Database
 from .parser import KeywordParser, MarkdownParser
 from .search import SearchEngine
+from .query import QueryEngine
 
-__all__ = ["Database", "KeywordParser", "MarkdownParser", "SearchEngine"]
+__all__ = ["Database", "KeywordParser", "MarkdownParser", "SearchEngine", "QueryEngine"]

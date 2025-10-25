@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime, timezone
 
-from kb_indexer import Database, KeywordParser, MarkdownParser, SearchEngine
+from kb_indexer import Database, KeywordParser, MarkdownParser, SearchEngine, QueryEngine
 from kb_indexer.parser import SimilarityParser
 
 
@@ -469,6 +469,129 @@ class CLI:
 
         return 0
 
+    def cmd_query(self, args):
+        """Query documents with question, keywords, and context."""
+        self._open_db()
+
+        # Determine knowledge base path
+        kb_path = args.kb_path or "./knowledge-base"
+
+        try:
+            # Initialize query engine
+            query_engine = QueryEngine(
+                db=self.db,
+                knowledge_base_path=kb_path,
+                backend=args.llm_backend,
+                model=args.llm_model
+            )
+
+            # Execute query
+            result = query_engine.query(
+                question=args.question,
+                keywords=args.keywords,
+                context=args.context,
+                threshold=args.threshold,
+                expand_depth=args.expand_depth,
+                enable_grep_fallback=not args.no_grep,
+                enable_learning=not args.no_learn,
+                auto_apply=not args.suggest_only
+            )
+
+            if args.format == "json":
+                print(json.dumps(result, indent=2))
+            else:
+                # Human-readable output
+                print(f"Query: {args.question}")
+                print(f"Context: {args.context}")
+                print(f"Keywords: {', '.join(args.keywords)}")
+                if result["query"].get("expanded_keywords") and args.expand_depth > 0:
+                    expanded = result["query"]["expanded_keywords"]
+                    added = set(expanded) - set(args.keywords)
+                    if added:
+                        print(f"Expanded: +{len(added)} similar keywords ({', '.join(sorted(added)[:5])}{'...' if len(added) > 5 else ''})")
+                print(f"Threshold: {args.threshold}\n")
+
+                if result["count"] == 0:
+                    print("No relevant documents found.")
+                else:
+                    print(f"Found {result['count']} relevant document(s):")
+                    print(f"  - Keyword search: {result['keyword_search_count']}")
+                    print(f"  - Grep search: {result['grep_search_count']}\n")
+
+                    for doc in result["results"]:
+                        source_icon = "🔍" if doc["source"] == "keyword_search" else "📝"
+
+                        # Show indexing status
+                        if doc.get("auto_indexed"):
+                            indexed_note = " [AUTO-INDEXED ✓]"
+                        elif not doc.get("indexed", True):
+                            indexed_note = " [NOT INDEXED]"
+                        else:
+                            indexed_note = ""
+
+                        print(f"{source_icon} {doc['filepath']}{indexed_note}")
+                        if doc.get("title"):
+                            print(f"   Title: {doc['title']}")
+                        if doc.get("summary"):
+                            summary = doc["summary"][:100] + "..." if len(doc["summary"]) > 100 else doc["summary"]
+                            print(f"   Summary: {summary}")
+                        print(f"   Relevance: {doc['relevance_score']:.2f}")
+                        print(f"   Reasoning: {doc['reasoning']}")
+                        if doc.get("matched_keywords"):
+                            print(f"   Keywords: {', '.join(doc['matched_keywords'])}")
+                        print()
+
+                # Show learning suggestions and application status
+                if result.get("suggestions"):
+                    suggestions = result["suggestions"]
+                    kw_suggestions = suggestions.get("keyword_suggestions", [])
+                    sim_suggestions = suggestions.get("similarity_suggestions", [])
+
+                    if kw_suggestions or sim_suggestions:
+                        applied = result.get("applied")
+                        if applied:
+                            print("=== Learning: Suggestions Applied ===\n")
+                            print(f"✓ Keywords added: {applied['keywords_added']}")
+                            print(f"✓ Similarities added: {applied['similarities_added']}")
+                            if applied.get('errors'):
+                                print(f"✗ Errors: {len(applied['errors'])}")
+                                for error in applied['errors'][:3]:  # Show first 3 errors
+                                    print(f"  - {error}")
+                            print()
+                        else:
+                            print("=== Learning Suggestions (Preview) ===\n")
+
+                        if kw_suggestions:
+                            print("Keyword Suggestions:")
+                            for sugg in kw_suggestions:
+                                status = "✓ APPLIED" if applied else ""
+                                print(f"  📄 {sugg['filepath']} {status}")
+                                print(f"     Add keywords: {', '.join(sugg['keywords'])}")
+                                print(f"     Reasoning: {sugg['reasoning']}\n")
+
+                        if sim_suggestions:
+                            print("Similarity Suggestions:")
+                            for sugg in sim_suggestions:
+                                status = "✓ APPLIED" if applied else ""
+                                print(f"  🔗 {sugg['keyword1']} ↔ {sugg['keyword2']} {status}")
+                                print(f"     Type: {sugg['type']}")
+                                print(f"     Context: {sugg['context']}")
+                                print(f"     Score: {sugg['score']:.2f}")
+                                print(f"     Reasoning: {sugg['reasoning']}\n")
+
+            return 0
+
+        except ImportError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            print("Install required packages: pip install ollama google-genai", file=sys.stderr)
+            return 1
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"Error executing query: {e}", file=sys.stderr)
+            return 1
+
     # ==================== Database Commands ====================
 
     def cmd_init(self, args):
@@ -641,6 +764,106 @@ Context examples (describe the domain/background):
         p_search.add_argument("--format", choices=["json", "table"], default="table",
                              help="Output format: 'json' for structured data, 'table' for human-readable (default: table)")
 
+        p_query = subparsers.add_parser("query", help="Query documents with question and context",
+                                        description="Intelligent document query with LLM-based filtering, grep fallback, and learning",
+                                        epilog="""
+This command combines keyword search, LLM-based relevance filtering, and automatic learning.
+
+Workflow:
+1. EXPAND keywords using similarity relationships (1 level by default)
+2. Search documents by expanded keywords
+3. Score each document's relevance to your question using LLM
+4. If no results, fall back to grep search across all files
+5. AUTO-INDEX any unindexed documents found via grep
+6. Generate and AUTO-APPLY learning suggestions to improve the index
+
+Keyword Expansion (default: 1 level):
+  - Automatically finds similar keywords (e.g., "RL" → "reinforcement learning")
+  - Use --expand-depth 0 to disable expansion
+  - Use --expand-depth 2 for two levels of expansion (finds similar keywords of similar keywords)
+
+Learning behavior (default: auto-apply):
+  - By default, suggestions are automatically applied to the database
+  - Use --suggest-only to preview suggestions without applying
+  - Use --no-learn to disable learning entirely
+
+Threshold guidelines:
+  0.9-1.0 = Very strict (only documents that directly answer the question)
+  0.7-0.8 = Balanced (recommended, filters out unrelated documents)
+  0.5-0.6 = Relaxed (includes tangentially related documents)
+  0.3-0.4 = Very relaxed (includes loosely related documents)
+
+Examples:
+  # Basic query with keywords
+  ./kbindex.py query "How does AlphaGo use RL?" \\
+    --keywords "reinforcement learning" "game AI" \\
+    --context "board games and competitions"
+
+  # With custom threshold and grep fallback
+  ./kbindex.py query "What is Q-learning?" \\
+    --keywords "RL" "learning" \\
+    --context "reinforcement learning algorithms" \\
+    --threshold 0.8
+
+  # Preview suggestions without applying (review mode)
+  ./kbindex.py query "Explain neural networks" \\
+    --keywords "neural networks" "deep learning" \\
+    --context "machine learning" \\
+    --suggest-only
+
+  # Disable keyword expansion (exact match only)
+  ./kbindex.py query "What is RL?" \\
+    --keywords "RL" \\
+    --context "machine learning" \\
+    --expand-depth 0
+
+  # Deep expansion (2 levels)
+  ./kbindex.py query "What is RL?" \\
+    --keywords "RL" \\
+    --context "machine learning" \\
+    --expand-depth 2
+
+  # Disable learning entirely
+  ./kbindex.py query "What are GANs?" \\
+    --keywords "GAN" \\
+    --context "generative models" \\
+    --no-learn
+
+  # Use alternative LLM backend (default is claude)
+  ./kbindex.py query "What is DQN?" \\
+    --keywords "deep learning" "Q-learning" \\
+    --context "reinforcement learning" \\
+    --llm-backend ollama
+
+  # JSON output for programmatic use
+  ./kbindex.py query "What are transformers?" \\
+    --keywords "transformer" "attention" \\
+    --context "NLP" \\
+    --format json
+                                        """,
+                                        formatter_class=argparse.RawDescriptionHelpFormatter)
+        p_query.add_argument("question", help="Your question about the topic")
+        p_query.add_argument("--keywords", nargs="+", required=True,
+                            help="Keywords to search for (e.g., 'reinforcement learning' 'AlphaGo')")
+        p_query.add_argument("--context", required=True,
+                            help="Context/domain for filtering (e.g., 'game AI and competitions')")
+        p_query.add_argument("--threshold", type=float, default=0.7,
+                            help="Minimum relevance score 0.0-1.0 (default: 0.7)")
+        p_query.add_argument("--expand-depth", type=int, default=1,
+                            help="Keyword expansion depth using similarities (0=no expansion, 1=one level, etc., default: 1)")
+        p_query.add_argument("--no-grep", action="store_true",
+                            help="Disable grep fallback search")
+        p_query.add_argument("--no-learn", action="store_true",
+                            help="Disable learning suggestions entirely")
+        p_query.add_argument("--suggest-only", action="store_true",
+                            help="Generate suggestions but don't auto-apply (preview mode)")
+        p_query.add_argument("--kb-path", help="Path to knowledge base directory (default: ./knowledge-base)")
+        p_query.add_argument("--llm-backend", choices=["claude", "gemini", "ollama"], default="ollama",
+                            help="LLM backend: 'ollama' (local, default), 'claude' (Claude Code CLI), or 'gemini' (cloud)")
+        p_query.add_argument("--llm-model", help="LLM model name (default: auto-select based on backend)")
+        p_query.add_argument("--format", choices=["json", "table"], default="table",
+                            help="Output format: 'json' for structured data, 'table' for human-readable (default: table)")
+
         # Database commands
         p_init = subparsers.add_parser("init", help="Initialize new database",
                                        description="Create a new database with schema")
@@ -673,6 +896,7 @@ Context examples (describe the domain/background):
             "unrelate": self.cmd_unrelate,
             "import-similarities": self.cmd_import_similarities,
             "search": self.cmd_search,
+            "query": self.cmd_query,
             "init": self.cmd_init,
             "db-stats": self.cmd_db_stats,
         }
