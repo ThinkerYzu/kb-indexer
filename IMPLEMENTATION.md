@@ -42,10 +42,11 @@ The Knowledge Base Indexer (kbindex) is a pure data tool for indexing documents 
 
 ### Test Suite
 
-**61 unit tests** covering all functionality:
+**80 unit tests** covering all functionality:
 - 18 database operation tests
 - 12 parser tests (keywords, similarities, markdown)
 - 12 search engine tests
+- 19 query engine tests (including 5 reindexing tests)
 - 19 real data tests
 
 **All tests passing** ✅
@@ -76,6 +77,67 @@ The Knowledge Base Indexer (kbindex) is a pure data tool for indexing documents 
 - `db-stats` - Database statistics
 
 ## Recent Updates
+
+### 2025-10-25: Automatic Document Reindexing
+
+**Feature:** Query command now automatically detects and reindexes documents that have been modified since last indexing, using intelligent LLM-based keyword merging.
+
+**Changes Made:**
+
+1. **QueryEngine Enhancements** (query.py)
+   - Added `_needs_reindexing()` method: Compares file modification time with database timestamp
+   - Added `reindex_document_if_modified()` method: Intelligently merges keywords using LLM
+     - Keeps relevant existing keywords
+     - Adds new keywords for new content
+     - Removes outdated keywords no longer relevant
+   - Integrated reindexing into `grep_search()` workflow
+   - Returns detailed status: up_to_date, reindexed, not_indexed, or error
+   - Properly handles SQLite UTC timestamps vs file system local timestamps
+
+2. **Intelligent Keyword Merging**
+   - LLM analyzes updated document content
+   - Generates three keyword lists: keep, add, remove
+   - Conservative removal policy (only removes clearly irrelevant keywords)
+   - Considers query keywords during reindexing
+   - Updates document title, summary, and keywords atomically
+
+3. **CLI Output Improvements** (kbindex.py)
+   - Added `[REINDEXED ↻]` indicator for updated documents
+   - Shows alongside `[AUTO-INDEXED ✓]` for newly indexed documents
+   - Clear visibility of document status during query
+
+4. **Comprehensive Testing**
+   - Added 5 new test cases in test_query.py:
+     - `test_needs_reindexing`: Timestamp comparison logic
+     - `test_reindex_document_up_to_date`: No reindexing when current
+     - `test_reindex_document_modified`: Full keyword merging workflow
+     - `test_query_with_reindexing`: End-to-end integration test
+     - `test_reindex_not_indexed_document`: Error handling
+   - Fixed timezone handling in test setup
+   - All 80 tests passing ✅
+
+5. **Documentation Updates**
+   - Updated CLAUDE.md with reindexing implementation details
+   - Updated README.md query workflow and feature list
+   - Updated IMPLEMENTATION.md with technical details
+
+**Benefits:**
+- Automatically keeps index up-to-date as documents evolve
+- Intelligent keyword management (not just replacement)
+- No manual intervention needed
+- Conservative approach prevents data loss
+- Clear user feedback about document status
+
+**Technical Details:**
+- Timestamp comparison handles UTC (database) vs local time (filesystem)
+- Uses existing `replace_document_keywords()` for atomic updates
+- Leverages database trigger for automatic timestamp updates
+- LLM-powered analysis ensures context-aware keyword decisions
+
+**Test Coverage:**
+- 5 new comprehensive tests
+- Total test count: 80 (up from 75)
+- All tests passing ✅
 
 ### 2025-10-25: Enhanced Search Output with Keyword Tracking
 

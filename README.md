@@ -41,6 +41,7 @@ The system builds a **domain-specific semantic layer** that LLMs can leverage fo
 - **AI-Powered Keyword Generation** - Automatic keyword extraction using Claude Code CLI (primary), with Ollama/Gemini fallback
 - **Strategic LLM Usage** - Claude Code for quality (keyword generation), Ollama for cost efficiency (context matching)
 - **Intelligent Sync** - Automated detection of new/modified documents with keyword regeneration
+- **Auto-Reindexing** - Automatically detects and reindexes modified documents with intelligent keyword merging
 - **Document Indexing** - Store markdown documents with titles, summaries, and keywords
 - **Keyword Management** - Normalized keyword storage with optional categorization
 - **Semantic Relationships** - Define similarities between keywords with context and scoring
@@ -304,10 +305,11 @@ The `query` command provides advanced question-based search with LLM-powered rel
 4. Scores each document's relevance to your question using LLM
 5. If no results, falls back to grep search across all files
 6. **AUTO-INDEXES** unindexed documents found via grep (generates keywords automatically, including query keywords)
-7. **LEARNS** (only if keyword search failed but grep succeeded): Adds query keywords to found documents
+7. **AUTO-REINDEXES** modified documents found via grep (intelligently merges keywords: keeps relevant, adds new, removes outdated)
+8. **LEARNS** (only if keyword search failed but grep succeeded): Adds query keywords to found documents
    - As similarities to existing keywords for indexed documents
    - As direct keywords for newly auto-indexed documents
-8. **AUTO-APPLIES** learning suggestions to the database by default
+9. **AUTO-APPLIES** learning suggestions to the database by default
 
 **Output includes:**
 - `expansion_map`: Shows how each original keyword was expanded (e.g., "rl" → ["reinforcement learning", "q-learning"])
@@ -564,10 +566,11 @@ python3 -m pytest tests/ --cov=kb_indexer
 
 ### Test Results
 
-All 59 tests pass:
-- 16 database operation tests
+All 80 tests pass:
+- 18 database operation tests
 - 12 parser tests (keywords, similarities, markdown)
 - 12 search engine tests
+- 19 query engine tests (including 5 reindexing tests)
 - 19 real data tests (validation, database operations, similarity, integrity, search)
 
 Real data tests validate the system using actual keywords.json files from the knowledge base:
