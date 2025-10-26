@@ -159,6 +159,11 @@ The `query` command provides advanced question-based document retrieval:
   - **Includes query keywords** that led to finding the document
   - Falls back to extracting keywords from title/summary if LLM fails
   - auto_index_document(filepath, query_keywords) method handles the indexing
+- **Auto-reindexing**: Documents modified since last indexing are automatically updated
+  - Checks file modification time vs database timestamp
+  - Uses LLM to intelligently merge keywords: keeps relevant existing keywords, adds new ones, removes outdated ones
+  - reindex_document_if_modified(filepath, query_keywords) method handles the reindexing
+  - Marked with `[REINDEXED ↻]` in output
 - **Smart Learning** (_generate_query_based_suggestions method):
   - **Only triggers** when keyword_search_count == 0 and grep_search_count > 0
   - For indexed documents: adds query keywords as **similarities** to existing keywords
@@ -168,6 +173,7 @@ The `query` command provides advanced question-based document retrieval:
   - Use `--suggest-only` to preview without applying
   - Use `--no-learn` to disable learning entirely
 - Auto-indexed files are marked with `[AUTO-INDEXED ✓]` in output
+- Reindexed files are marked with `[REINDEXED ↻]` in output
 - Expanded keywords are shown in output (e.g., "Expanded: +3 similar keywords")
 - apply_learning_suggestions() method handles database updates
 - Duplicate prevention: checks existing keywords/similarities before adding

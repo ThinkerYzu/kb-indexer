@@ -10,6 +10,7 @@ import json
 import os
 import re
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Literal
 
@@ -466,9 +467,21 @@ Your answer:"""
             # Check if document is indexed
             doc = self.db.get_document(str(rel_path))
             was_indexed = bool(doc)
+            was_reindexed = False
 
             if doc:
-                # Already indexed, get keywords
+                # Already indexed - check if needs reindexing
+                reindex_result = self.reindex_document_if_modified(
+                    filepath=str(rel_path),
+                    query_keywords=query_keywords
+                )
+
+                if reindex_result["status"] == "reindexed":
+                    was_reindexed = True
+                    # Get updated document info
+                    doc = self.db.get_document(str(rel_path))
+
+                # Get current keywords (possibly updated)
                 doc_keywords = self.db.get_document_keywords(str(rel_path))
                 keyword_list = [kw["keyword"] for kw in doc_keywords]
                 title = doc.get("title", "")
@@ -507,7 +520,8 @@ Your answer:"""
                     "reasoning": reasoning,
                     "source": "grep_search",
                     "indexed": True,  # Now indexed (either was before or just indexed)
-                    "auto_indexed": not was_indexed  # Flag if it was just auto-indexed
+                    "auto_indexed": not was_indexed,  # Flag if it was just auto-indexed
+                    "reindexed": was_reindexed  # Flag if keywords were updated
                 })
 
         # Sort by relevance score and limit results
@@ -594,6 +608,48 @@ Your answer:"""
                 return ' '.join(summary)[:200]
         except Exception:
             return ""
+
+    def _needs_reindexing(self, filepath: str, doc: Dict) -> bool:
+        """
+        Check if a document needs reindexing based on file modification time.
+
+        Args:
+            filepath: Relative path to the document (e.g., "doc.md")
+            doc: Document dictionary from database with 'updated_at' field
+
+        Returns:
+            True if file is newer than database timestamp, False otherwise
+        """
+        try:
+            # Get absolute path
+            abs_path = self.knowledge_base_path / filepath
+
+            # Get file modification time
+            file_mtime = abs_path.stat().st_mtime
+
+            # Parse database timestamp (format: "YYYY-MM-DD HH:MM:SS")
+            db_updated_at = doc.get("updated_at")
+            if not db_updated_at:
+                return True  # No timestamp, reindex
+
+            # Parse datetime string (SQLite CURRENT_TIMESTAMP is in UTC)
+            try:
+                db_datetime = datetime.strptime(db_updated_at, "%Y-%m-%d %H:%M:%S")
+                # Treat as UTC and convert to timestamp
+                db_datetime_utc = db_datetime.replace(tzinfo=timezone.utc)
+                db_timestamp = db_datetime_utc.timestamp()
+            except ValueError:
+                # Try with microseconds
+                db_datetime = datetime.strptime(db_updated_at, "%Y-%m-%d %H:%M:%S.%f")
+                db_datetime_utc = db_datetime.replace(tzinfo=timezone.utc)
+                db_timestamp = db_datetime_utc.timestamp()
+
+            # File is newer if its mtime is greater than db timestamp
+            return file_mtime > db_timestamp
+
+        except Exception as e:
+            print(f"Warning: Could not check if {filepath} needs reindexing: {e}")
+            return False
 
     def auto_index_document(self, filepath: str, query_keywords: Optional[List[str]] = None) -> bool:
         """
@@ -682,6 +738,148 @@ Your answer:"""
         except Exception as e:
             print(f"Warning: Auto-indexing failed for {filepath}: {e}")
             return False
+
+    def reindex_document_if_modified(
+        self,
+        filepath: str,
+        query_keywords: Optional[List[str]] = None
+    ) -> Dict:
+        """
+        Reindex a document if it has been modified since last indexing.
+        Intelligently merges existing keywords with newly generated ones.
+
+        Args:
+            filepath: Relative path to the document (e.g., "doc.md")
+            query_keywords: Optional query keywords to consider when reindexing
+
+        Returns:
+            Dictionary with reindexing status:
+            - "status": "not_indexed", "up_to_date", "reindexed", or "error"
+            - "keywords_before": List of keywords before reindexing (if applicable)
+            - "keywords_after": List of keywords after reindexing (if applicable)
+            - "added": List of keywords added
+            - "removed": List of keywords removed
+            - "kept": List of keywords kept
+        """
+        try:
+            # Check if document is indexed
+            doc = self.db.get_document(filepath)
+            if not doc:
+                return {
+                    "status": "not_indexed",
+                    "message": "Document not in database"
+                }
+
+            # Check if needs reindexing
+            if not self._needs_reindexing(filepath, doc):
+                return {
+                    "status": "up_to_date",
+                    "message": "Document is up to date"
+                }
+
+            # Get existing keywords
+            existing_kw_data = self.db.get_document_keywords(filepath)
+            existing_keywords = [kw["keyword"] for kw in existing_kw_data]
+
+            # Get absolute path
+            abs_path = self.knowledge_base_path / filepath
+
+            # Extract updated title and summary
+            title = self._extract_title_from_file(str(abs_path))
+            summary = self._extract_summary_from_file(str(abs_path))
+
+            # Read document content
+            try:
+                with open(abs_path, 'r', encoding='utf-8') as f:
+                    content = f.read(2000)  # First 2000 chars
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "message": f"Could not read file: {e}"
+                }
+
+            # Generate updated keywords using LLM
+            query_kw_hint = ""
+            if query_keywords:
+                query_kw_hint = f"\nQuery keywords to consider: {', '.join(query_keywords)}"
+
+            prompt = f"""Analyze this updated document and generate an improved keyword list.
+
+Title: {title}
+Summary: {summary}
+Content preview:
+{content}
+
+Existing keywords: {', '.join(existing_keywords)}{query_kw_hint}
+
+Task: Generate an updated keyword list by:
+1. KEEPING existing keywords that are still relevant to the document
+2. ADDING new keywords for content that's new or wasn't captured before
+3. REMOVING existing keywords that are no longer relevant
+
+Return a JSON object with three arrays:
+{{
+  "keep": ["keyword1", "keyword2"],     // Existing keywords to keep
+  "add": ["keyword3", "keyword4"],      // New keywords to add
+  "remove": ["keyword5"]                // Existing keywords to remove
+}}
+
+Guidelines:
+- Be conservative with removals - only remove if clearly no longer relevant
+- Add keywords for significant new concepts or topics
+- Keep the total keyword count between 5-15
+- All keywords should be lowercase, 1-3 words
+
+Your answer (JSON only):"""
+
+            try:
+                answer = self._call_llm(prompt)
+                # Extract JSON from response
+                json_match = re.search(r'\{.*\}', answer, re.DOTALL)
+                if json_match:
+                    keyword_changes = json.loads(json_match.group(0))
+                    keep = keyword_changes.get("keep", [])
+                    add = keyword_changes.get("add", [])
+                    remove = keyword_changes.get("remove", [])
+                else:
+                    # Fallback: keep all existing, add query keywords
+                    keep = existing_keywords
+                    add = query_keywords or []
+                    remove = []
+            except Exception as e:
+                print(f"Warning: LLM keyword generation failed: {e}")
+                # Fallback: keep all existing
+                keep = existing_keywords
+                add = query_keywords or []
+                remove = []
+
+            # Compute final keyword list
+            final_keywords = list(set(keep + add))
+
+            # Remove keywords marked for removal
+            final_keywords = [kw for kw in final_keywords if kw not in remove]
+
+            # Update document title and summary if they changed
+            self.db.update_document(filepath, title=title, summary=summary)
+
+            # Replace keywords in database
+            keywords_data = [(kw, None) for kw in final_keywords]
+            self.db.replace_document_keywords(filepath, keywords_data)
+
+            return {
+                "status": "reindexed",
+                "keywords_before": existing_keywords,
+                "keywords_after": final_keywords,
+                "added": [kw for kw in add if kw in final_keywords],
+                "removed": remove,
+                "kept": [kw for kw in keep if kw in final_keywords]
+            }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Reindexing failed: {e}"
+            }
 
     def generate_learning_suggestions(
         self,

@@ -17,6 +17,9 @@ class TestQueryEngine(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
+        import time
+        import os
+
         # Create temporary database
         self.temp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         self.temp_db.close()
@@ -82,6 +85,14 @@ Includes convolutional neural networks (CNNs) and recurrent neural networks (RNN
 This document contains information about deep Q-networks (DQN).
 DQN combines Q-learning with deep neural networks.
 """)
+
+        # Set all file mtimes to the past to ensure they're older than DB timestamps
+        # This makes tests more predictable
+        past_time = time.time() - 10
+        for filename in ["rl_basics.md", "alphago.md", "neural_networks.md", "unindexed.md"]:
+            filepath = Path(self.temp_kb_dir) / filename
+            if filepath.exists():
+                os.utime(filepath, (past_time, past_time))
 
     def tearDown(self):
         """Clean up test fixtures."""
@@ -559,6 +570,193 @@ DQN combines Q-learning with deep neural networks.
                 "value-based" in found_query_keywords or "algorithms" in found_query_keywords,
                 f"Expected query keywords in similarities, got: {found_query_keywords}"
             )
+
+
+    def test_needs_reindexing(self):
+        """Test checking if document needs reindexing."""
+        import time
+        import os
+
+        with patch('ollama.generate'):
+            engine = QueryEngine(
+                self.db,
+                knowledge_base_path=self.temp_kb_dir,
+                backend="ollama"
+            )
+
+            # Get document from database
+            doc = self.db.get_document("rl_basics.md")
+
+            # Set file mtime to the past (1 second ago)
+            filepath = Path(self.temp_kb_dir) / "rl_basics.md"
+            past_time = time.time() - 1
+            os.utime(filepath, (past_time, past_time))
+
+            # Document should NOT need reindexing (file older than DB)
+            needs_reindex = engine._needs_reindexing("rl_basics.md", doc)
+            self.assertFalse(needs_reindex)
+
+            # Touch the file to make it newer
+            time.sleep(0.1)  # Small delay to ensure different timestamp
+            filepath.touch()
+
+            # Now document SHOULD need reindexing
+            needs_reindex = engine._needs_reindexing("rl_basics.md", doc)
+            self.assertTrue(needs_reindex)
+
+    def test_reindex_document_up_to_date(self):
+        """Test reindexing when document is up to date."""
+        import time
+        import os
+
+        with patch('ollama.generate'):
+            engine = QueryEngine(
+                self.db,
+                knowledge_base_path=self.temp_kb_dir,
+                backend="ollama"
+            )
+
+            # Set file mtime to the past to ensure it's older than DB
+            filepath = Path(self.temp_kb_dir) / "rl_basics.md"
+            past_time = time.time() - 1
+            os.utime(filepath, (past_time, past_time))
+
+            # Document should be up to date
+            result = engine.reindex_document_if_modified("rl_basics.md")
+
+            self.assertEqual(result["status"], "up_to_date")
+
+    def test_reindex_document_modified(self):
+        """Test reindexing when document has been modified."""
+        import time
+
+        with patch('ollama.generate') as mock_generate:
+            # Mock LLM response for keyword generation
+            mock_generate.return_value = {
+                'response': json.dumps({
+                    "keep": ["reinforcement learning", "machine learning"],
+                    "add": ["temporal difference", "value function"],
+                    "remove": ["q-learning"]  # Remove Q-learning
+                })
+            }
+
+            engine = QueryEngine(
+                self.db,
+                knowledge_base_path=self.temp_kb_dir,
+                backend="ollama"
+            )
+
+            # Get initial keywords
+            initial_keywords = [kw["keyword"] for kw in self.db.get_document_keywords("rl_basics.md")]
+            self.assertIn("q-learning", initial_keywords)
+
+            # Modify the file
+            time.sleep(0.1)
+            filepath = Path(self.temp_kb_dir) / "rl_basics.md"
+            filepath.write_text("""# Reinforcement Learning Basics
+
+Updated content about temporal difference learning and value functions.
+This document has been significantly updated with new content.
+""")
+
+            # Reindex the document
+            result = engine.reindex_document_if_modified("rl_basics.md")
+
+            self.assertEqual(result["status"], "reindexed")
+            self.assertIn("keywords_before", result)
+            self.assertIn("keywords_after", result)
+            self.assertIn("added", result)
+            self.assertIn("removed", result)
+
+            # Verify keywords were updated
+            updated_keywords = [kw["keyword"] for kw in self.db.get_document_keywords("rl_basics.md")]
+            self.assertIn("temporal difference", updated_keywords)
+            self.assertIn("value function", updated_keywords)
+            self.assertNotIn("q-learning", updated_keywords)
+
+    def test_query_with_reindexing(self):
+        """Test that query automatically reindexes modified documents."""
+        import time
+        import os
+
+        with patch('ollama.generate') as mock_generate, \
+             patch('subprocess.run') as mock_subprocess:
+
+            # Set file mtime to past first
+            filepath = Path(self.temp_kb_dir) / "rl_basics.md"
+            past_time = time.time() - 2
+            os.utime(filepath, (past_time, past_time))
+
+            # Now modify rl_basics.md
+            time.sleep(0.2)
+            filepath.write_text("""# Reinforcement Learning Basics
+
+Updated with new content about value-based methods.
+This discusses value iteration and policy gradients.
+""")
+
+            # Mock grep to find the modified file
+            test_file_path = str(filepath)
+            mock_subprocess.return_value = MagicMock(
+                returncode=0,
+                stdout=f"{test_file_path}\n"
+            )
+
+            # Mock LLM responses:
+            # 1. Extract search terms for grep
+            # 2. Reindex keyword generation
+            # 3. Score the document
+            mock_generate.side_effect = [
+                {'response': 'value-based\nmethods\nalgorithms'},  # Search terms
+                {'response': json.dumps({  # Reindexing keywords
+                    "keep": ["reinforcement learning", "machine learning"],
+                    "add": ["value-based", "value iteration"],
+                    "remove": ["q-learning"]
+                })},
+                {'response': 'yes,0.9,Discusses value-based RL methods'}  # Scoring
+            ]
+
+            engine = QueryEngine(
+                self.db,
+                knowledge_base_path=self.temp_kb_dir,
+                backend="ollama"
+            )
+
+            # Query with keywords not in current index
+            result = engine.query(
+                question="What are value-based methods?",
+                keywords=["value-based"],
+                context="reinforcement learning",
+                threshold=0.7,
+                expand_depth=0,
+                enable_grep_fallback=True,
+                enable_learning=False  # Disable learning to focus on reindexing
+            )
+
+            # Should find the document via grep
+            self.assertGreater(result["grep_search_count"], 0)
+
+            # Check if document was reindexed
+            if len(result["results"]) > 0:
+                for doc in result["results"]:
+                    if doc["filepath"] == "rl_basics.md":
+                        # Should be marked as reindexed
+                        self.assertTrue(doc.get("reindexed", False))
+                        break
+
+    def test_reindex_not_indexed_document(self):
+        """Test reindexing a document that's not in the database."""
+        with patch('ollama.generate'):
+            engine = QueryEngine(
+                self.db,
+                knowledge_base_path=self.temp_kb_dir,
+                backend="ollama"
+            )
+
+            # Try to reindex unindexed document
+            result = engine.reindex_document_if_modified("unindexed.md")
+
+            self.assertEqual(result["status"], "not_indexed")
 
 
 if __name__ == "__main__":

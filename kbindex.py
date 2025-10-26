@@ -533,6 +533,8 @@ class CLI:
                         # Show indexing status
                         if doc.get("auto_indexed"):
                             indexed_note = " [AUTO-INDEXED ✓]"
+                        elif doc.get("reindexed"):
+                            indexed_note = " [REINDEXED ↻]"
                         elif not doc.get("indexed", True):
                             indexed_note = " [NOT INDEXED]"
                         else:
