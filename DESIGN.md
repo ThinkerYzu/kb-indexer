@@ -714,6 +714,426 @@ kbindex similar "RL" --user-context "game AI and competitions" --format json
 
 ---
 
+## Query Refinement and Feedback Loop
+
+### Overview
+
+Users often don't know the perfect keywords on their first try. The **query refinement loop** allows users to:
+1. Try a query with initial keywords
+2. Refine the query with better keywords if results are poor
+3. Mark which documents were actually helpful
+4. Periodically run `learn` command to improve index from all feedback
+5. System learns from successful keyword → document mappings across all queries
+
+### User Workflow
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  1. Initial Query                                       │
+│  ./kbindex.py query "How does AlphaGo work?"           │
+│    --keywords "game AI"                                 │
+│    --context "board games"                              │
+│                                                          │
+│  Results: 2 documents, not very relevant                │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│  2. Check History                                       │
+│  ./kbindex.py history                                   │
+│                                                          │
+│  Output:                                                 │
+│  [1] "How does AlphaGo work?" (2 attempts, 1 hour ago) │
+│  [2] "What is Q-learning?" (1 attempt, 2 days ago)     │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│  3. Refine Query with Better Keywords                  │
+│  ./kbindex.py refine 1 \                                │
+│    --keywords "AlphaGo" "Monte Carlo" "neural networks" │
+│                                                          │
+│  Results: 5 documents, much better!                     │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│  4. Mark Helpful Documents                              │
+│  ./kbindex.py feedback 1 \                              │
+│    --helpful alphago-architecture.md \                  │
+│    --helpful monte-carlo-tree-search.md                 │
+│                                                          │
+│  Feedback recorded to database (no learning yet)        │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│  5. Learn from All Feedback (Run Periodically)          │
+│  ./kbindex.py learn                                     │
+│                                                          │
+│  Analyzing 5 unprocessed feedback entries...            │
+│  ✓ Add similarity: "game AI" ↔ "AlphaGo"               │
+│  ✓ Add keyword "Monte Carlo" to helpful docs            │
+│  Total: 6 suggestions                                   │
+│                                                          │
+│  Apply? [y/n] y                                         │
+│                                                          │
+│  Applied 6 suggestions.                                 │
+│  Marked 5 feedback entries as processed.                │
+│  Future queries benefit from learned relationships!     │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Database Schema
+
+#### `queries` Table
+Stores unique question/context combinations.
+
+```sql
+CREATE TABLE queries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question TEXT NOT NULL,
+    context TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Purpose:** Track user queries over time. Multiple attempts at answering the same question are linked to the same query record.
+
+#### `query_attempts` Table
+Tracks each attempt at answering a query with different keywords.
+
+```sql
+CREATE TABLE query_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    query_id INTEGER NOT NULL,
+    keywords TEXT NOT NULL,                    -- JSON array: ["kw1", "kw2"]
+    expand_depth INTEGER DEFAULT 1,
+    threshold REAL DEFAULT 0.7,
+    result_count INTEGER DEFAULT 0,
+    top_results TEXT,                          -- JSON array of top 10 results
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (query_id) REFERENCES queries(id) ON DELETE CASCADE
+);
+```
+
+**Purpose:** Record each keyword combination tried for a query. This allows:
+- Users to see which keyword sets they've already tried
+- System to analyze which keywords led to better results
+- Learning algorithm to find successful keyword → document patterns
+
+**Fields:**
+- `keywords`: JSON array of user-provided keywords (e.g., `["AlphaGo", "Monte Carlo"]`)
+- `top_results`: JSON array of result objects with filepath, score, matched_keywords
+- `result_count`: Total number of results found
+
+#### `query_feedback` Table
+Stores user feedback on document helpfulness.
+
+```sql
+CREATE TABLE query_feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    query_id INTEGER NOT NULL,
+    attempt_id INTEGER,                        -- Which attempt found this doc
+    filepath TEXT NOT NULL,
+    helpful BOOLEAN NOT NULL,                  -- 1=helpful, 0=not helpful
+    notes TEXT,                                -- Optional user notes
+    processed BOOLEAN DEFAULT 0,               -- 0=unprocessed, 1=processed by learn command
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (query_id) REFERENCES queries(id) ON DELETE CASCADE,
+    FOREIGN KEY (attempt_id) REFERENCES query_attempts(id) ON DELETE SET NULL,
+    UNIQUE(query_id, filepath)
+);
+```
+
+**Purpose:** Capture which documents actually helped answer the user's question. This is the **ground truth** for learning.
+
+**Fields:**
+- `processed`: Tracks whether this feedback has been analyzed by the `learn` command
+  - `0` = unprocessed (new feedback)
+  - `1` = processed (learned from this feedback)
+- Allows `learn` command to efficiently query only new feedback
+- Can be reset with `--reprocess` flag to re-analyze
+
+**Key Insight:** When a document is marked helpful for a query, we know:
+- The question/context
+- The keywords that found it (from attempt)
+- The document's existing keywords (from database)
+- Gap: missing keywords or similarities
+
+**Indexes:**
+```sql
+CREATE INDEX idx_query_feedback_processed ON query_feedback(processed);
+```
+
+### CLI Commands
+
+#### `query` Command (Enhanced)
+Automatically saves query history.
+
+```bash
+./kbindex.py query "How does AlphaGo work?" \
+  --keywords "game AI" \
+  --context "board games" \
+  --format json
+
+# Output includes query_id for later refinement
+{
+  "query_id": 1,
+  "query": {...},
+  "results": [...],
+  ...
+}
+```
+
+#### `history` Command (New)
+Show recent queries and their attempts.
+
+```bash
+# List recent queries
+./kbindex.py history [--limit 10]
+
+# Show details for specific query
+./kbindex.py history 1 --format json
+
+# Output:
+{
+  "query_id": 1,
+  "question": "How does AlphaGo work?",
+  "context": "board games",
+  "created_at": "2025-10-26 10:00:00",
+  "attempts": [
+    {
+      "attempt_id": 1,
+      "keywords": ["game AI"],
+      "result_count": 2,
+      "created_at": "2025-10-26 10:00:00"
+    },
+    {
+      "attempt_id": 2,
+      "keywords": ["AlphaGo", "Monte Carlo", "neural networks"],
+      "result_count": 5,
+      "created_at": "2025-10-26 11:00:00"
+    }
+  ],
+  "feedback": [
+    {
+      "filepath": "alphago-architecture.md",
+      "helpful": true,
+      "attempt_id": 2
+    }
+  ]
+}
+```
+
+#### `refine` Command (New)
+Retry a previous query with new keywords.
+
+```bash
+# Refine by query ID
+./kbindex.py refine 1 \
+  --keywords "AlphaGo" "Monte Carlo" "neural networks" \
+  [--threshold 0.7] \
+  [--expand-depth 1]
+
+# Refine by automatically using last query
+./kbindex.py refine --last \
+  --keywords "AlphaGo" "Monte Carlo"
+
+# Output: Same as query command, but links to existing query record
+```
+
+**Behavior:**
+- Reuses question and context from original query
+- Creates new attempt record
+- Allows users to iterate on keyword selection
+- System tracks which keyword combinations work best
+
+#### `feedback` Command (New)
+Record which documents were helpful or not helpful.
+
+```bash
+# Mark documents as helpful
+./kbindex.py feedback 1 \
+  --helpful alphago-architecture.md \
+  --helpful monte-carlo-tree-search.md
+
+# Mark document as not helpful
+./kbindex.py feedback 1 \
+  --not-helpful some-irrelevant-doc.md
+
+# Add notes
+./kbindex.py feedback 1 \
+  --helpful alphago-architecture.md \
+  --notes "Great explanation of neural network architecture"
+
+# Interactive mode (prompts user to review results)
+./kbindex.py feedback 1 --interactive
+
+# View all feedback for a query
+./kbindex.py feedback 1 --show
+```
+
+**Behavior:**
+- Records which documents helped answer the query (writes to database)
+- Optionally links to the attempt that found the document
+- **Does NOT trigger learning** - feedback is stored for later batch analysis
+
+#### `learn` Command (New)
+Analyze all unprocessed feedback and improve the index in batch.
+
+```bash
+# Analyze all feedback and automatically apply improvements
+./kbindex.py learn
+
+# Show what would be learned without applying (dry-run)
+./kbindex.py learn --dry-run
+```
+
+**Output:**
+```
+Analyzing 5 unprocessed feedback entries from 3 queries...
+
+Keyword Gap Analysis:
+✓ Add similarity: "Monte Carlo" ↔ "MCTS" (abbreviation, score 0.9)
+  Reason: 3 queries searched "Monte Carlo", helpful docs have "MCTS"
+
+✓ Add similarity: "game AI" ↔ "AlphaGo" (related, score 0.7)
+  Reason: 2 queries searched "game AI", found helpful AlphaGo docs
+
+Keyword Augmentation:
+✓ Add keyword "neural networks" to alphago-architecture.md
+  Reason: 2 queries used this keyword to find this helpful doc
+
+✓ Add keyword "Monte Carlo" to monte-carlo-tree-search.md
+  Reason: 3 queries used this keyword to find this helpful doc
+
+Pattern Recognition:
+✓ Keywords ["AlphaGo", "Monte Carlo"] appear together in 2 successful queries
+  Suggest adding similarity between these terms
+
+Summary:
+- 3 similarity suggestions
+- 2 keyword augmentation suggestions
+- 1 pattern-based suggestion
+- Total: 6 suggestions
+
+Applied 6 suggestions successfully.
+Marked 5 feedback entries as processed.
+```
+
+**Behavior:**
+- Always analyzes ALL unprocessed feedback (`processed = 0`)
+- Finds patterns across multiple queries
+- Shows all suggestions
+- Automatically applies suggestions (no confirmation needed)
+- Marks all processed feedback as `processed = 1`
+- `--dry-run`: Shows suggestions without applying or marking as processed
+
+### Learning Algorithm
+
+The `learn` command analyzes all feedback in batch and generates improvement suggestions:
+
+#### 1. Keyword Gap Analysis
+Finds common gaps between user search terms and document keywords.
+
+```python
+# Analyze across ALL helpful feedback entries:
+feedback_entries = [
+    (query_keywords=["Monte Carlo"], doc="mcts.md", doc_keywords=["mcts", "tree search"]),
+    (query_keywords=["Monte Carlo"], doc="alphago.md", doc_keywords=["mcts", "alphago"]),
+    (query_keywords=["Monte Carlo"], doc="ucb.md", doc_keywords=["mcts", "ucb1"]),
+]
+
+# Pattern: 3 queries searched "Monte Carlo" but all docs have "mcts"
+# Suggestion: Add similarity "Monte Carlo" ↔ "MCTS" (abbreviation, score 0.9)
+# Confidence: HIGH (3 occurrences)
+```
+
+**Scoring:** More occurrences = higher confidence score
+
+#### 2. Keyword Augmentation
+Adds user keywords to documents they successfully found.
+
+```python
+# Example from aggregate analysis:
+helpful_mappings = [
+    (query_keywords=["neural networks"], doc="alphago.md"),
+    (query_keywords=["neural networks", "deep learning"], doc="alphago.md"),
+]
+
+# Pattern: "neural networks" keyword led to alphago.md 2 times
+# Current doc keywords: ["alphago", "mcts", "deep learning"]
+# Suggestion: Add "neural networks" to alphago.md
+# Confidence: MEDIUM (2 occurrences)
+```
+
+**Deduplication:** Only adds if keyword not already present
+
+#### 3. Pattern Recognition
+Identifies keyword co-occurrence in successful queries.
+
+```python
+# Analyze keyword combinations across queries:
+successful_combinations = [
+    (query_keywords=["AlphaGo", "Monte Carlo"], result_count=5, helpful_count=3),
+    (query_keywords=["AlphaGo", "MCTS"], result_count=4, helpful_count=2),
+    (query_keywords=["game AI", "AlphaGo"], result_count=3, helpful_count=2),
+]
+
+# Pattern: Keywords often used together
+# Suggestion: Add similarity "AlphaGo" ↔ "Monte Carlo" (related, score 0.6)
+# Reasoning: Co-occur in 2 successful queries
+```
+
+**Threshold:** Only suggest if co-occurrence >= 2 queries
+
+#### 4. Similarity Scoring (Future Enhancement)
+Track expansion success rate to adjust similarity scores.
+
+```python
+# Track which expansions led to helpful results:
+expansion_stats = {
+    ("RL", "reinforcement learning"): {"helpful": 8, "total": 10},  # 80% success
+    ("RL", "real life"): {"helpful": 1, "total": 10},  # 10% success
+}
+
+# Suggestion: Increase score for "RL" ↔ "reinforcement learning"
+# Suggestion: Decrease score for "RL" ↔ "real life"
+```
+
+**Note:** Requires tracking expansion chains in query attempts (future work)
+
+### Integration with Existing Learning
+
+The feedback loop **complements** existing auto-learning:
+
+| Learning Type | Trigger | What It Learns |
+|--------------|---------|----------------|
+| **Auto-indexing** | Grep finds unindexed doc | Add doc to index with LLM keywords |
+| **Auto-reindexing** | File modified | Update doc keywords intelligently |
+| **Smart learning** | Grep succeeds, keyword fails | Add query keywords as similarities |
+| **Feedback learning** (NEW) | User marks doc helpful | Add missing keywords/similarities based on what worked |
+
+**Key Difference:** Feedback learning uses **human-validated ground truth** (user confirmed this doc is helpful), making it more accurate than automated heuristics.
+
+### Privacy & Data Retention
+
+- Query history stored locally in SQLite
+- No external data transmission
+- Users can clear history: `./kbindex.py clear-history [--before date]`
+- Feedback is tied to queries but can be anonymized
+
+### Performance Considerations
+
+- History queries indexed by `created_at DESC` for fast recent query retrieval
+- Limit top_results to 10 documents per attempt (reduce storage)
+- Feedback unique constraint prevents duplicate feedback per query/document
+- Learning applied incrementally (not batch reprocessing)
+
+---
+
 ## Future Enhancements
 
 ### Other Potential Features

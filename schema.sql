@@ -68,3 +68,57 @@ AFTER UPDATE ON documents
 BEGIN
     UPDATE documents SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
+
+-- Query History tables for learning from user refinement and feedback
+-- Tracks unique question/context combinations
+CREATE TABLE IF NOT EXISTS queries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question TEXT NOT NULL,                               -- User's question
+    context TEXT NOT NULL,                                -- User's context/domain
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_queries_created ON queries(created_at DESC);
+
+-- Tracks each attempt at answering a query with different keywords
+CREATE TABLE IF NOT EXISTS query_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    query_id INTEGER NOT NULL,
+    keywords TEXT NOT NULL,                               -- JSON array of keywords used
+    expand_depth INTEGER DEFAULT 1,
+    threshold REAL DEFAULT 0.7,
+    result_count INTEGER DEFAULT 0,
+    top_results TEXT,                                     -- JSON array of top 10 results
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (query_id) REFERENCES queries(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_query_attempts_query ON query_attempts(query_id);
+CREATE INDEX IF NOT EXISTS idx_query_attempts_created ON query_attempts(created_at DESC);
+
+-- Tracks user feedback on which documents were helpful
+CREATE TABLE IF NOT EXISTS query_feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    query_id INTEGER NOT NULL,
+    attempt_id INTEGER,                                   -- Which attempt found this doc
+    filepath TEXT NOT NULL,
+    helpful BOOLEAN NOT NULL,                             -- 1=helpful, 0=not helpful
+    notes TEXT,                                           -- Optional user notes
+    processed BOOLEAN DEFAULT 0,                          -- 0=unprocessed, 1=processed by learn command
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (query_id) REFERENCES queries(id) ON DELETE CASCADE,
+    FOREIGN KEY (attempt_id) REFERENCES query_attempts(id) ON DELETE SET NULL,
+    UNIQUE(query_id, filepath)
+);
+
+CREATE INDEX IF NOT EXISTS idx_query_feedback_query ON query_feedback(query_id);
+CREATE INDEX IF NOT EXISTS idx_query_feedback_filepath ON query_feedback(filepath);
+CREATE INDEX IF NOT EXISTS idx_query_feedback_processed ON query_feedback(processed);
+
+-- Trigger to update queries.last_attempted_at when new attempt is added
+CREATE TRIGGER IF NOT EXISTS update_query_last_attempt
+AFTER INSERT ON query_attempts
+BEGIN
+    UPDATE queries SET last_attempted_at = CURRENT_TIMESTAMP WHERE id = NEW.query_id;
+END;

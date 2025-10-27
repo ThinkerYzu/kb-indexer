@@ -186,3 +186,42 @@ The `query` command provides advanced question-based document retrieval:
 - `ollama` (default): Local Ollama - requires ollama installation and model download (free)
 - `claude`: Claude Code CLI - requires `claude` command available
 - `gemini`: Google Gemini API - requires GEMINI_API_KEY environment variable
+
+## Query Refinement and Feedback Loop
+
+Users often don't find perfect keywords on the first try. The **query refinement loop** allows iterative improvement:
+
+**Workflow:**
+1. **Initial query** - User tries first set of keywords
+2. **Check history** - Review previous attempts (./kbindex.py history)
+3. **Refine query** - Try better keywords (./kbindex.py refine <id> --keywords ...)
+4. **Provide feedback** - Mark helpful documents (./kbindex.py feedback <id> --helpful doc.md)
+5. **Batch learning** - Periodically run ./kbindex.py learn to analyze all feedback
+
+**New Commands:**
+- `history [query_id]` - Show recent queries and their attempts
+- `refine <query_id> --keywords ...` - Retry query with new keywords
+- `feedback <query_id> --helpful doc.md` - Record helpful/not helpful (does NOT trigger learning)
+- `learn` - Analyze all unprocessed feedback, show suggestions with confirmation, apply and mark as processed
+- `learn --dry-run` - Show suggestions without applying or marking as processed
+
+**Database Schema (3 new tables):**
+- `queries` - Unique question/context combinations
+- `query_attempts` - Each keyword combination tried (links to query)
+- `query_feedback` - User feedback with `processed` flag (0=unprocessed, 1=processed by learn command)
+
+**Batch Learning Algorithm (learn command):**
+Analyzes ALL unprocessed feedback to find patterns:
+1. **Keyword gap analysis** - Find common gaps across multiple feedback entries (e.g., 3 queries searched "Monte Carlo", all helpful docs have "MCTS" → Add similarity with high confidence)
+2. **Keyword augmentation** - Add user keywords that consistently led to helpful docs (occurrence-based)
+3. **Pattern recognition** - Identify keyword combinations that appear in 2+ successful queries
+4. **Confidence scoring** - More occurrences = higher confidence score
+
+**Key Insight:**
+- Batch analysis finds patterns invisible to single-query learning
+- Uses **aggregate data** from multiple queries/users
+- Human-validated ground truth (user confirmed helpful)
+- Simple workflow: collect feedback anytime, learn periodically
+- Confirmation prompt before applying changes
+
+**Implementation Location:** kb_indexer/feedback.py (new module)

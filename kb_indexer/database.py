@@ -701,3 +701,252 @@ class Database:
             "document_count": doc_count,
             "related_keywords_count": related_count,
         }
+
+    # ===== Query History Operations =====
+
+    def get_or_create_query(self, question: str, context: str) -> int:
+        """
+        Get existing query or create new one if it doesn't exist.
+
+        Args:
+            question: User's question
+            context: User's context/domain
+
+        Returns:
+            Query ID
+        """
+        # Check if query already exists
+        result = self.conn.execute(
+            """
+            SELECT id FROM queries
+            WHERE question = ? AND context = ?
+            """,
+            (question, context),
+        ).fetchone()
+
+        if result:
+            return result["id"]
+
+        # Create new query
+        cursor = self.conn.execute(
+            """
+            INSERT INTO queries (question, context)
+            VALUES (?, ?)
+            """,
+            (question, context),
+        )
+        return cursor.lastrowid
+
+    def add_query_attempt(
+        self,
+        query_id: int,
+        keywords: List[str],
+        expand_depth: int = 1,
+        threshold: float = 0.7,
+        result_count: int = 0,
+        top_results: Optional[List[Dict]] = None,
+    ) -> int:
+        """
+        Record a query attempt with keywords and results.
+
+        Args:
+            query_id: Query ID
+            keywords: List of keywords used
+            expand_depth: Keyword expansion depth
+            threshold: Relevance threshold
+            result_count: Number of results found
+            top_results: JSON array of top 10 results
+
+        Returns:
+            Attempt ID
+        """
+        import json
+
+        keywords_json = json.dumps(keywords)
+        top_results_json = json.dumps(top_results) if top_results else None
+
+        cursor = self.conn.execute(
+            """
+            INSERT INTO query_attempts
+            (query_id, keywords, expand_depth, threshold, result_count, top_results)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (query_id, keywords_json, expand_depth, threshold, result_count, top_results_json),
+        )
+        return cursor.lastrowid
+
+    def get_query(self, query_id: int) -> Optional[Dict]:
+        """
+        Get query details by ID.
+
+        Args:
+            query_id: Query ID
+
+        Returns:
+            Query dictionary or None
+        """
+        return self.conn.execute(
+            """
+            SELECT * FROM queries WHERE id = ?
+            """,
+            (query_id,),
+        ).fetchone()
+
+    def get_recent_queries(self, limit: int = 10) -> List[Dict]:
+        """
+        Get recent queries with attempt counts.
+
+        Args:
+            limit: Number of queries to return
+
+        Returns:
+            List of query dictionaries
+        """
+        return self.conn.execute(
+            """
+            SELECT
+                q.id,
+                q.question,
+                q.context,
+                q.created_at,
+                q.last_attempted_at,
+                COUNT(DISTINCT qa.id) as attempt_count,
+                COUNT(DISTINCT qf.id) as feedback_count
+            FROM queries q
+            LEFT JOIN query_attempts qa ON q.id = qa.query_id
+            LEFT JOIN query_feedback qf ON q.id = qf.query_id
+            GROUP BY q.id
+            ORDER BY q.created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    def get_query_attempts(self, query_id: int) -> List[Dict]:
+        """
+        Get all attempts for a query.
+
+        Args:
+            query_id: Query ID
+
+        Returns:
+            List of attempt dictionaries
+        """
+        import json
+
+        attempts = self.conn.execute(
+            """
+            SELECT * FROM query_attempts
+            WHERE query_id = ?
+            ORDER BY created_at DESC
+            """,
+            (query_id,),
+        ).fetchall()
+
+        # Parse JSON fields
+        for attempt in attempts:
+            attempt["keywords"] = json.loads(attempt["keywords"])
+            if attempt["top_results"]:
+                attempt["top_results"] = json.loads(attempt["top_results"])
+
+        return attempts
+
+    def add_feedback(
+        self,
+        query_id: int,
+        filepath: str,
+        helpful: bool,
+        attempt_id: Optional[int] = None,
+        notes: Optional[str] = None,
+    ) -> None:
+        """
+        Record feedback for a document in a query.
+
+        Args:
+            query_id: Query ID
+            filepath: Document filepath
+            helpful: True if helpful, False if not
+            attempt_id: Optional attempt ID that found this doc
+            notes: Optional user notes
+        """
+        self.conn.execute(
+            """
+            INSERT OR REPLACE INTO query_feedback
+            (query_id, attempt_id, filepath, helpful, notes)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (query_id, attempt_id, filepath, helpful, notes),
+        )
+
+    def get_feedback(self, query_id: int) -> List[Dict]:
+        """
+        Get all feedback for a query.
+
+        Args:
+            query_id: Query ID
+
+        Returns:
+            List of feedback dictionaries
+        """
+        return self.conn.execute(
+            """
+            SELECT * FROM query_feedback
+            WHERE query_id = ?
+            ORDER BY created_at DESC
+            """,
+            (query_id,),
+        ).fetchall()
+
+    def get_unprocessed_feedback(self) -> List[Dict]:
+        """
+        Get all unprocessed feedback.
+
+        Returns:
+            List of feedback dictionaries with query/attempt details
+        """
+        import json
+
+        feedback = self.conn.execute(
+            """
+            SELECT
+                qf.*,
+                q.question,
+                q.context,
+                qa.keywords,
+                d.title,
+                d.summary
+            FROM query_feedback qf
+            JOIN queries q ON qf.query_id = q.id
+            LEFT JOIN query_attempts qa ON qf.attempt_id = qa.id
+            LEFT JOIN documents d ON qf.filepath = d.filepath
+            WHERE qf.processed = 0 AND qf.helpful = 1
+            ORDER BY qf.created_at DESC
+            """,
+        ).fetchall()
+
+        # Parse JSON fields
+        for fb in feedback:
+            if fb["keywords"]:
+                fb["keywords"] = json.loads(fb["keywords"])
+
+        return feedback
+
+    def mark_feedback_processed(self, feedback_ids: List[int]) -> None:
+        """
+        Mark feedback entries as processed.
+
+        Args:
+            feedback_ids: List of feedback IDs
+        """
+        if not feedback_ids:
+            return
+
+        placeholders = ",".join("?" * len(feedback_ids))
+        self.conn.execute(
+            f"""
+            UPDATE query_feedback
+            SET processed = 1
+            WHERE id IN ({placeholders})
+            """,
+            feedback_ids,
+        )

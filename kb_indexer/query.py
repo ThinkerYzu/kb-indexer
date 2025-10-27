@@ -1183,7 +1183,32 @@ Your answer (JSON only):"""
                 if auto_apply and suggestions:
                     applied = self.apply_learning_suggestions(suggestions)
 
+        # Phase 5: Save query history
+        query_id = self.db.get_or_create_query(question, context)
+
+        # Prepare top_results for storage (limit to top 10)
+        top_results = [
+            {
+                "filepath": r["filepath"],
+                "title": r.get("title"),
+                "matched_keywords": r.get("matched_keywords", []),
+                "relevance_score": r.get("relevance_score", 0),
+            }
+            for r in all_results[:10]
+        ]
+
+        attempt_id = self.db.add_query_attempt(
+            query_id=query_id,
+            keywords=keywords,
+            expand_depth=expand_depth,
+            threshold=threshold,
+            result_count=len(all_results),
+            top_results=top_results,
+        )
+
         return {
+            "query_id": query_id,
+            "attempt_id": attempt_id,
             "query": {
                 "question": question,
                 "keywords": keywords,

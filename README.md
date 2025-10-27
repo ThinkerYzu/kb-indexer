@@ -298,6 +298,71 @@ The `query` command provides advanced question-based search with LLM-powered rel
   --format json
 ```
 
+### Query Refinement Loop (Iterative Search Improvement)
+
+Users rarely find the perfect keywords on the first try. The query refinement loop helps you iterate and teaches the system what works:
+
+```bash
+# Step 1: Initial query with first guess at keywords
+./kbindex.py query "How does AlphaGo work?" \
+  --keywords "game AI" \
+  --context "board games"
+# Results: 2 documents, not very relevant
+# Output includes: query_id: 1
+
+# Step 2: Check query history
+./kbindex.py history
+# Shows:
+# [1] "How does AlphaGo work?" (1 attempt, just now)
+#     Keywords: ["game AI"] → 2 results
+
+# Step 3: Refine with better keywords
+./kbindex.py refine 1 \
+  --keywords "AlphaGo" "Monte Carlo" "neural networks"
+# Results: 5 documents, much better!
+# Same question/context, new keywords
+# Output includes: query_id: 1, attempt_id: 2
+
+# Step 4: Mark helpful documents
+./kbindex.py feedback 1 \
+  --helpful alphago-architecture.md \
+  --helpful monte-carlo-tree-search.md
+# Feedback recorded to database (no learning yet)
+
+# Step 5: View detailed query history
+./kbindex.py history 1 --format json
+# Shows all attempts and feedback for this query
+
+# Step 6: Learn from all feedback (run periodically)
+./kbindex.py learn
+# Analyzes ALL unprocessed feedback and automatically applies improvements
+# Example output:
+#   Analyzing 5 unprocessed feedback entries...
+#   ✓ Add similarity: "Monte Carlo" ↔ "MCTS" (3 occurrences)
+#   ✓ Add keyword "neural networks" to alphago.md (2 occurrences)
+#   Applied 6 suggestions successfully.
+#   Marked 5 feedback entries as processed.
+
+# Dry-run (preview without applying)
+./kbindex.py learn --dry-run
+
+# Alternative: Refine last query automatically
+./kbindex.py refine --last --keywords "AlphaGo" "MCTS"
+```
+
+**What the `learn` command analyzes (batch processing):**
+- **Keyword gaps**: Finds common gaps across all feedback (e.g., 3 queries searched "Monte Carlo", all helpful docs have "MCTS")
+- **Keyword augmentation**: Adds user keywords that consistently led to helpful docs
+- **Pattern recognition**: Identifies keyword combinations that appear in successful queries
+- **Confidence scoring**: Higher occurrence count = higher confidence = higher similarity score
+
+**Benefits:**
+- Batch analysis finds patterns invisible to single-query learning
+- Confirmation prompt lets you review before applying
+- Automatically marks feedback as processed to avoid duplicates
+- System gets smarter with aggregate data from multiple users
+- Simple workflow: collect feedback anytime, learn periodically
+
 **Query Workflow:**
 1. **EXPANDS keywords** using similarity relationships (1 level by default, configurable)
 2. Searches documents using expanded keywords

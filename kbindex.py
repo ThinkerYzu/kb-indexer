@@ -652,6 +652,275 @@ class CLI:
 
         return 0
 
+    # ==================== Query History Commands ====================
+
+    def cmd_history(self, args):
+        """Show query history."""
+        self._open_db()
+
+        if args.query_id:
+            # Show details for specific query
+            query = self.db.get_query(args.query_id)
+            if not query:
+                print(f"Error: Query {args.query_id} not found")
+                return 1
+
+            if args.format == "json":
+                import json
+
+                attempts = self.db.get_query_attempts(args.query_id)
+                feedback = self.db.get_feedback(args.query_id)
+
+                output = {
+                    "query_id": query["id"],
+                    "question": query["question"],
+                    "context": query["context"],
+                    "created_at": query["created_at"],
+                    "last_attempted_at": query["last_attempted_at"],
+                    "attempts": [
+                        {
+                            "attempt_id": a["id"],
+                            "keywords": a["keywords"],
+                            "expand_depth": a["expand_depth"],
+                            "threshold": a["threshold"],
+                            "result_count": a["result_count"],
+                            "created_at": a["created_at"],
+                        }
+                        for a in attempts
+                    ],
+                    "feedback": [
+                        {
+                            "filepath": fb["filepath"],
+                            "helpful": bool(fb["helpful"]),
+                            "notes": fb["notes"],
+                            "attempt_id": fb["attempt_id"],
+                            "created_at": fb["created_at"],
+                        }
+                        for fb in feedback
+                    ],
+                }
+                print(json.dumps(output, indent=2))
+            else:
+                # Table format
+                attempts = self.db.get_query_attempts(args.query_id)
+                feedback = self.db.get_feedback(args.query_id)
+
+                print(f"Query #{query['id']}: {query['question']}")
+                print(f"Context: {query['context']}")
+                print(f"Created: {query['created_at']}")
+                print(f"Last attempted: {query['last_attempted_at']}")
+                print()
+
+                print("Attempts:")
+                for a in attempts:
+                    print(
+                        f"  #{a['id']}: {', '.join(a['keywords'])} → {a['result_count']} results"
+                    )
+
+                if feedback:
+                    print()
+                    print("Feedback:")
+                    for fb in feedback:
+                        status = "✓" if fb["helpful"] else "✗"
+                        print(f"  {status} {fb['filepath']}")
+                        if fb["notes"]:
+                            print(f"     {fb['notes']}")
+
+        else:
+            # List recent queries
+            queries = self.db.get_recent_queries(args.limit)
+
+            if args.format == "json":
+                import json
+
+                output = [
+                    {
+                        "query_id": q["id"],
+                        "question": q["question"],
+                        "context": q["context"],
+                        "attempt_count": q["attempt_count"],
+                        "feedback_count": q["feedback_count"],
+                        "created_at": q["created_at"],
+                        "last_attempted_at": q["last_attempted_at"],
+                    }
+                    for q in queries
+                ]
+                print(json.dumps(output, indent=2))
+            else:
+                # Table format
+                for q in queries:
+                    print(
+                        f"[{q['id']}] {q['question'][:60]} ({q['attempt_count']} attempts, {q['feedback_count']} feedback)"
+                    )
+
+        return 0
+
+    def cmd_refine(self, args):
+        """Refine a previous query with new keywords."""
+        self._open_db()
+
+        # Get the query
+        query = self.db.get_query(args.query_id)
+        if not query:
+            print(f"Error: Query {args.query_id} not found")
+            return 1
+
+        # Initialize QueryEngine
+        from .query import QueryEngine
+
+        query_engine = QueryEngine(
+            self.db, args.kb_path, args.llm_backend, model=args.llm_model
+        )
+
+        # Run query with same question/context but new keywords
+        result = query_engine.query(
+            question=query["question"],
+            keywords=args.keywords,
+            context=query["context"],
+            threshold=args.threshold,
+            expand_depth=args.expand_depth,
+            enable_grep_fallback=not args.no_grep,
+            enable_learning=not args.no_learn,
+            auto_apply=True,
+        )
+
+        # Format output
+        self._output_query_results(result, args.format)
+
+        return 0
+
+    def cmd_feedback(self, args):
+        """Record feedback on query results."""
+        self._open_db()
+
+        # Get the query
+        query = self.db.get_query(args.query_id)
+        if not query:
+            print(f"Error: Query {args.query_id} not found")
+            return 1
+
+        # Record feedback for each document
+        for filepath in args.helpful or []:
+            self.db.add_feedback(
+                query_id=args.query_id,
+                filepath=filepath,
+                helpful=True,
+                attempt_id=args.attempt_id,
+                notes=args.notes,
+            )
+
+        for filepath in args.not_helpful or []:
+            self.db.add_feedback(
+                query_id=args.query_id,
+                filepath=filepath,
+                helpful=False,
+                attempt_id=args.attempt_id,
+            )
+
+        if args.helpful or args.not_helpful:
+            total = len(args.helpful or []) + len(args.not_helpful or [])
+            print(f"Recorded {total} feedback entry/entries for query #{args.query_id}")
+        else:
+            # Show feedback if no arguments given
+            feedback = self.db.get_feedback(args.query_id)
+            if feedback:
+                print(f"Feedback for query #{args.query_id}:")
+                for fb in feedback:
+                    status = "helpful" if fb["helpful"] else "not helpful"
+                    print(f"  {fb['filepath']}: {status}")
+            else:
+                print(f"No feedback recorded for query #{args.query_id}")
+
+        return 0
+
+    def cmd_learn(self, args):
+        """Learn from all unprocessed feedback and improve the index."""
+        self._open_db()
+
+        from .feedback import FeedbackLearner
+
+        learner = FeedbackLearner(self.db)
+
+        # Analyze feedback
+        analysis = learner.analyze_feedback()
+
+        if analysis["status"] == "no_feedback":
+            print("No unprocessed feedback to analyze")
+            return 0
+
+        print(
+            f"Analyzing {analysis['feedback_count']} feedback entries from {analysis['query_count']} queries...\n"
+        )
+
+        # Group suggestions by type
+        suggestions_by_type = {"keyword_gaps": [], "keyword_augmentation": [], "pattern_recognition": []}
+
+        for suggestion in analysis["suggestions"]:
+            if suggestion["type"] == "similarity":
+                suggestions_by_type["keyword_gaps"].append(suggestion)
+            elif suggestion["type"] == "keyword_augmentation":
+                suggestions_by_type["keyword_augmentation"].append(suggestion)
+
+        # Group pattern recognition by checking reason
+        for suggestion in analysis["suggestions"]:
+            if "Co-occur" in suggestion.get("reason", "") or "appear together" in suggestion.get("reason", ""):
+                suggestions_by_type["pattern_recognition"].append(suggestion)
+
+        # Print suggestions
+        if suggestions_by_type["keyword_gaps"]:
+            print("Keyword Gap Analysis:")
+            for s in suggestions_by_type["keyword_gaps"]:
+                print(
+                    f"  ✓ Add similarity: \"{s['keyword1']}\" ↔ \"{s['keyword2']}\" ({s['similarity_type']}, score {s['score']:.2f})"
+                )
+                print(f"    Reason: {s['reason']}")
+
+        if suggestions_by_type["keyword_augmentation"]:
+            print("\nKeyword Augmentation:")
+            for s in suggestions_by_type["keyword_augmentation"]:
+                print(
+                    f"  ✓ Add keyword \"{s['keyword']}\" to {s['filepath']}"
+                )
+                print(f"    Reason: {s['reason']}")
+
+        if suggestions_by_type["pattern_recognition"]:
+            print("\nPattern Recognition:")
+            for s in suggestions_by_type["pattern_recognition"]:
+                if s not in suggestions_by_type["keyword_gaps"]:
+                    print(
+                        f"  ✓ Add similarity: \"{s['keyword1']}\" ↔ \"{s['keyword2']}\" (related, score {s['score']:.2f})"
+                    )
+                    print(f"    Reason: {s['reason']}")
+
+        # Summary
+        print(f"\nSummary:")
+        print(f"  - {len(suggestions_by_type['keyword_gaps'])} keyword gap suggestions")
+        print(f"  - {len(suggestions_by_type['keyword_augmentation'])} keyword augmentation suggestions")
+        print(f"  - {len(suggestions_by_type['pattern_recognition'])} pattern-based suggestions")
+        print(f"  - Total: {analysis['breakdown']['keyword_gaps'] + analysis['breakdown']['keyword_augmentation'] + analysis['breakdown']['pattern_recognition']} suggestions")
+
+        if args.dry_run:
+            print("\n(Dry-run mode: no changes applied)")
+            return 0
+
+        # Apply suggestions
+        applied = learner.apply_suggestions(analysis["suggestions"])
+
+        # Mark feedback as processed
+        self.db.mark_feedback_processed(analysis["feedback_ids"])
+
+        # Print results
+        print(f"\nApplied {applied['similarities_added']} similarities.")
+        print(f"Added {applied['keywords_added']} keywords.")
+        print(f"Marked {analysis['feedback_count']} feedback entries as processed.")
+
+        if applied["errors"]:
+            print("\nErrors:")
+            for error in applied["errors"]:
+                print(f"  - {error}")
+
+        return 0
+
     # ==================== Main ====================
 
     def run(self):
@@ -887,6 +1156,54 @@ Examples:
         p_query.add_argument("--format", choices=["json", "table"], default="table",
                             help="Output format: 'json' for structured data, 'table' for human-readable (default: table)")
 
+        # Query Refinement and Feedback Commands
+        p_history = subparsers.add_parser("history", help="Show query history",
+                                          description="View recent queries and their attempts/feedback")
+        p_history.add_argument("query_id", nargs="?", type=int,
+                              help="Optional query ID to show details (default: show recent queries)")
+        p_history.add_argument("--limit", type=int, default=10,
+                              help="Number of recent queries to show (default: 10)")
+        p_history.add_argument("--format", choices=["json", "table"], default="table",
+                              help="Output format (default: table)")
+
+        p_refine = subparsers.add_parser("refine", help="Refine a previous query with new keywords",
+                                        description="Retry a query with different keywords")
+        p_refine.add_argument("query_id", type=int,
+                            help="Query ID to refine")
+        p_refine.add_argument("--keywords", nargs="+", required=True,
+                            help="New keywords to try (e.g., 'reinforcement learning' 'AlphaGo')")
+        p_refine.add_argument("--threshold", type=float, default=0.7,
+                            help="Minimum relevance score (default: 0.7)")
+        p_refine.add_argument("--expand-depth", type=int, default=1,
+                            help="Keyword expansion depth (default: 1)")
+        p_refine.add_argument("--no-grep", action="store_true",
+                            help="Disable grep fallback")
+        p_refine.add_argument("--no-learn", action="store_true",
+                            help="Disable learning")
+        p_refine.add_argument("--kb-path", help="Path to knowledge base directory (default: ./knowledge-base)")
+        p_refine.add_argument("--llm-backend", choices=["claude", "gemini", "ollama"], default="ollama",
+                            help="LLM backend (default: ollama)")
+        p_refine.add_argument("--llm-model", help="LLM model name (default: auto-select)")
+        p_refine.add_argument("--format", choices=["json", "table"], default="table",
+                            help="Output format (default: table)")
+
+        p_feedback = subparsers.add_parser("feedback", help="Record feedback on query results",
+                                          description="Mark which documents were helpful for a query")
+        p_feedback.add_argument("query_id", type=int,
+                              help="Query ID to provide feedback for")
+        p_feedback.add_argument("--helpful", nargs="+",
+                              help="Document filepaths that were helpful (e.g., doc.md doc2.md)")
+        p_feedback.add_argument("--not-helpful", nargs="+",
+                              help="Document filepaths that were not helpful")
+        p_feedback.add_argument("--attempt-id", type=int,
+                              help="Optional attempt ID that found the document")
+        p_feedback.add_argument("--notes", help="Optional notes about the feedback")
+
+        p_learn = subparsers.add_parser("learn", help="Learn from all feedback and improve index",
+                                       description="Analyze unprocessed feedback and apply improvements in batch")
+        p_learn.add_argument("--dry-run", action="store_true",
+                           help="Show suggestions without applying (default: apply automatically)")
+
         # Database commands
         p_init = subparsers.add_parser("init", help="Initialize new database",
                                        description="Create a new database with schema")
@@ -920,6 +1237,10 @@ Examples:
             "import-similarities": self.cmd_import_similarities,
             "search": self.cmd_search,
             "query": self.cmd_query,
+            "history": self.cmd_history,
+            "refine": self.cmd_refine,
+            "feedback": self.cmd_feedback,
+            "learn": self.cmd_learn,
             "init": self.cmd_init,
             "db-stats": self.cmd_db_stats,
         }
