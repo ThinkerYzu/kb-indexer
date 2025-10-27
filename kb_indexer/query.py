@@ -664,18 +664,14 @@ Your answer:"""
             # Get absolute path
             abs_path = self.knowledge_base_path / filepath
 
-            # Extract title and summary
-            title = self._extract_title_from_file(str(abs_path))
-            summary = self._extract_summary_from_file(str(abs_path))
-
-            # Read document content for keyword generation
+            # Read document content
             try:
                 with open(abs_path, 'r', encoding='utf-8') as f:
                     content = f.read(2000)  # First 2000 chars
             except Exception:
                 return False
 
-            # Generate keywords using LLM with the same approach as generate_keywords.py
+            # Generate title, summary, and keywords using LLM (same approach as generate_keywords.py)
             query_kw_section = ""
             if query_keywords:
                 query_kw_section = f"""
@@ -685,9 +681,9 @@ Consider including relevant variations or related terms in your keyword extracti
 
 """
 
-            prompt = f"""You are a metadata extraction assistant. Analyze this markdown document and extract keywords.
+            prompt = f"""You are a metadata extraction assistant. Analyze this markdown document and extract metadata.
 
-{query_kw_section}TASK: Generate keywords following this process:
+{query_kw_section}TASK: Generate metadata following this process:
 1. FIRST, think about 5-10 questions that people might ask that this document can answer
    - Questions should be natural, as users would phrase them
    - Think about what problems or needs would lead someone to this document
@@ -698,32 +694,41 @@ Consider including relevant variations or related terms in your keyword extracti
    - Include both specific terms and general concepts
    - Use lowercase for keywords unless they are proper nouns or abbreviations
 
-Return ONLY a JSON array of keywords, nothing else.
-Example: ["keyword1", "keyword2", "keyword3"]
+3. Generate title and summary:
+   - Title: Extract from content (if document has # Title header) or create descriptive title in Title Case
+   - Summary: Write 2-3 sentence summary of the document's main points
+
+Return a JSON object with this structure:
+{{
+  "title": "Document Title",
+  "summary": "2-3 sentence summary",
+  "keywords": ["keyword1", "keyword2", ...]
+}}
 
 DOCUMENT CONTENT:
 {content}
 
-Your answer:"""
+Your answer (JSON only):"""
 
             try:
                 answer = self._call_llm(prompt)
-                # Extract JSON array from response
-                json_match = re.search(r'\[.*?\]', answer, re.DOTALL)
+                # Extract JSON object from response
+                json_match = re.search(r'\{.*\}', answer, re.DOTALL)
                 if json_match:
-                    keywords = json.loads(json_match.group(0))
+                    metadata = json.loads(json_match.group(0))
+                    title = metadata.get("title", "")
+                    summary = metadata.get("summary", "")
+                    keywords = metadata.get("keywords", [])
                 else:
-                    # Fallback: extract words from title and summary
-                    keywords = []
-                    for text in [title, summary]:
-                        words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
-                        keywords.extend(words[:3])
-                    keywords = list(set(keywords))[:5]
-            except Exception:
-                # Fallback keywords from title
-                keywords = re.findall(r'\b[a-zA-Z]{4,}\b', title.lower())[:5]
+                    # LLM didn't return valid JSON - fail
+                    print(f"Warning: LLM returned invalid JSON for {filepath}")
+                    return False
+            except Exception as e:
+                # LLM call failed - fail
+                print(f"Warning: LLM metadata generation failed for {filepath}: {e}")
+                return False
 
-            if not keywords:
+            if not title or not keywords:
                 return False
 
             # Add document to database
@@ -796,10 +801,6 @@ Your answer:"""
             # Get absolute path
             abs_path = self.knowledge_base_path / filepath
 
-            # Extract updated title and summary
-            title = self._extract_title_from_file(str(abs_path))
-            summary = self._extract_summary_from_file(str(abs_path))
-
             # Read document content
             try:
                 with open(abs_path, 'r', encoding='utf-8') as f:
@@ -810,7 +811,7 @@ Your answer:"""
                     "message": f"Could not read file: {e}"
                 }
 
-            # Generate updated keywords using LLM
+            # Generate updated metadata using LLM
             query_kw_section = ""
             if query_keywords:
                 query_kw_section = f"""
@@ -820,12 +821,12 @@ Consider including relevant variations or related terms.
 
 """
 
-            prompt = f"""You are a metadata extraction assistant. Analyze this updated document and intelligently update its keyword list.
+            prompt = f"""You are a metadata extraction assistant. Analyze this updated document and intelligently update its metadata.
 
 EXISTING KEYWORDS:
 {', '.join(existing_keywords)}
 
-{query_kw_section}TASK: Generate an updated keyword list following this process:
+{query_kw_section}TASK: Generate updated metadata following this process:
 1. FIRST, think about 5-10 questions that people might ask that this document can answer
    - Questions should be natural, as users would phrase them
    - Think about what problems or needs would lead someone to this document
@@ -835,6 +836,10 @@ EXISTING KEYWORDS:
    - ADD: New keywords based on what terms users asking those questions might search for
    - REMOVE: Existing keywords that are no longer relevant
 
+3. Generate updated title and summary:
+   - Title: Extract from content (if document has # Title header) or create descriptive title in Title Case
+   - Summary: Write 2-3 sentence summary of the document's main points
+
 Guidelines for keywords:
 - Extract 10-20 keywords total (after keep/add/remove)
 - Include terms from potential questions and document content
@@ -842,8 +847,10 @@ Guidelines for keywords:
 - Use lowercase for keywords unless they are proper nouns or abbreviations
 - Be conservative with removals - only remove if clearly no longer relevant
 
-Return a JSON object with three arrays:
+Return a JSON object with this structure:
 {{
+  "title": "Document Title",
+  "summary": "2-3 sentence summary",
   "keep": ["keyword1", "keyword2"],     // Existing keywords to keep
   "add": ["keyword3", "keyword4"],      // New keywords to add
   "remove": ["keyword5"]                // Existing keywords to remove
@@ -859,18 +866,24 @@ Your answer (JSON only):"""
                 # Extract JSON from response
                 json_match = re.search(r'\{.*\}', answer, re.DOTALL)
                 if json_match:
-                    keyword_changes = json.loads(json_match.group(0))
-                    keep = keyword_changes.get("keep", [])
-                    add = keyword_changes.get("add", [])
-                    remove = keyword_changes.get("remove", [])
+                    metadata = json.loads(json_match.group(0))
+                    title = metadata.get("title", "")
+                    summary = metadata.get("summary", "")
+                    keep = metadata.get("keep", [])
+                    add = metadata.get("add", [])
+                    remove = metadata.get("remove", [])
                 else:
                     # Fallback: keep all existing, add query keywords
+                    title = ""
+                    summary = ""
                     keep = existing_keywords
                     add = query_keywords or []
                     remove = []
             except Exception as e:
-                print(f"Warning: LLM keyword generation failed: {e}")
+                print(f"Warning: LLM metadata generation failed: {e}")
                 # Fallback: keep all existing
+                title = ""
+                summary = ""
                 keep = existing_keywords
                 add = query_keywords or []
                 remove = []
@@ -881,8 +894,9 @@ Your answer (JSON only):"""
             # Remove keywords marked for removal
             final_keywords = [kw for kw in final_keywords if kw not in remove]
 
-            # Update document title and summary if they changed
-            self.db.update_document(filepath, title=title, summary=summary)
+            # Update document title and summary (only if AI provided them)
+            if title and summary:
+                self.db.update_document(filepath, title=title, summary=summary)
 
             # Replace keywords in database
             keywords_data = [(kw, None) for kw in final_keywords]

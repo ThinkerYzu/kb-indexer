@@ -155,14 +155,16 @@ The `query` command provides advanced question-based document retrieval:
   - Simple context filtering (30% word overlap threshold)
 - Grep searches knowledge-base directory for files matching extracted terms
 - **Auto-indexing**: Unindexed documents found via grep are automatically indexed
-  - Uses LLM with question-based keyword generation (same approach as generate_keywords.py)
+  - Uses LLM to generate title, summary, and keywords (same approach as generate_keywords.py)
   - LLM first thinks about questions users might ask, then generates search keywords
+  - **AI-generated summary**: LLM creates 2-3 sentence summary (not mechanically extracted)
   - **Includes query keywords** that led to finding the document
   - Documents are skipped if LLM-based indexing fails (no fallback)
   - auto_index_document(filepath, query_keywords) method handles the indexing
 - **Auto-reindexing**: Documents modified since last indexing are automatically updated
   - Checks file modification time vs database timestamp
-  - Uses LLM with question-based keyword generation to intelligently merge keywords
+  - Uses LLM to regenerate title, summary, and intelligently merge keywords
+  - **AI-generated summary**: LLM creates fresh 2-3 sentence summary (not mechanically extracted)
   - LLM decides which keywords to keep, add, or remove based on updated content
   - reindex_document_if_modified(filepath, query_keywords) method handles the reindexing
   - Marked with `[REINDEXED ↻]` in output
