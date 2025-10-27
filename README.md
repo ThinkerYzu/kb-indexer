@@ -345,9 +345,6 @@ Users rarely find the perfect keywords on the first try. The query refinement lo
 
 # Dry-run (preview without applying)
 ./kbindex.py learn --dry-run
-
-# Alternative: Refine last query automatically
-./kbindex.py refine --last --keywords "AlphaGo" "MCTS"
 ```
 
 **What the `learn` command analyzes (batch processing):**
@@ -358,7 +355,7 @@ Users rarely find the perfect keywords on the first try. The query refinement lo
 
 **Benefits:**
 - Batch analysis finds patterns invisible to single-query learning
-- Confirmation prompt lets you review before applying
+- Automatically applies improvements without prompts
 - Automatically marks feedback as processed to avoid duplicates
 - System gets smarter with aggregate data from multiple users
 - Simple workflow: collect feedback anytime, learn periodically

@@ -202,7 +202,7 @@ Users often don't find perfect keywords on the first try. The **query refinement
 - `history [query_id]` - Show recent queries and their attempts
 - `refine <query_id> --keywords ...` - Retry query with new keywords
 - `feedback <query_id> --helpful doc.md` - Record helpful/not helpful (does NOT trigger learning)
-- `learn` - Analyze all unprocessed feedback, show suggestions with confirmation, apply and mark as processed
+- `learn` - Analyze all unprocessed feedback and automatically apply improvements
 - `learn --dry-run` - Show suggestions without applying or marking as processed
 
 **Database Schema (3 new tables):**
@@ -222,6 +222,6 @@ Analyzes ALL unprocessed feedback to find patterns:
 - Uses **aggregate data** from multiple queries/users
 - Human-validated ground truth (user confirmed helpful)
 - Simple workflow: collect feedback anytime, learn periodically
-- Confirmation prompt before applying changes
+- Automatic improvement application (no confirmation needed)
 
 **Implementation Location:** kb_indexer/feedback.py (new module)

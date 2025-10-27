@@ -1202,6 +1202,53 @@ The feedback loop **complements** existing auto-learning:
 
 ---
 
+## Implementation Status
+
+✅ **Completed (as of commit b21378c)**
+
+### Database Schema
+- ✅ `queries` table - Stores unique question/context combinations
+- ✅ `query_attempts` table - Records each keyword combination tried
+- ✅ `query_feedback` table - Stores user feedback with `processed` flag
+- ✅ All indexes and triggers implemented
+
+### Database Methods (`kb_indexer/database.py`)
+- ✅ `get_or_create_query()` - Get/create query record
+- ✅ `add_query_attempt()` - Record attempt with keywords and results
+- ✅ `get_query()` - Retrieve query details
+- ✅ `get_recent_queries()` - List recent queries with counts
+- ✅ `get_query_attempts()` - Get all attempts for a query
+- ✅ `add_feedback()` - Record helpful/not helpful documents
+- ✅ `get_feedback()` - Get feedback for a query
+- ✅ `get_unprocessed_feedback()` - Get feedback ready for learning
+- ✅ `mark_feedback_processed()` - Mark feedback as processed
+
+### Feedback Learning (`kb_indexer/feedback.py`)
+- ✅ `FeedbackLearner` class
+- ✅ `analyze_feedback()` - Analyzes all unprocessed feedback
+- ✅ Keyword gap analysis - Finds common keyword-document mismatches
+- ✅ Keyword augmentation - Adds proven keywords to documents
+- ✅ Pattern recognition - Identifies keyword co-occurrence
+- ✅ `apply_suggestions()` - Applies improvements to database
+
+### Query History Tracking (`kb_indexer/query.py`)
+- ✅ Query method saves attempt with `query_id` and `attempt_id`
+- ✅ Stores top 10 results for reference
+- ✅ Returns `query_id` and `attempt_id` in output
+
+### CLI Commands (`kbindex.py`)
+- ✅ `history` - View recent queries and attempts
+- ✅ `refine` - Retry query with new keywords
+- ✅ `feedback` - Record helpful/not helpful documents
+- ✅ `learn` - Batch learning from all unprocessed feedback
+
+### Documentation
+- ✅ DESIGN.md - Complete technical design
+- ✅ README.md - User workflows and examples
+- ✅ CLAUDE.md - Developer instructions
+
+---
+
 ## Development Guidelines
 
 ### Code Style
