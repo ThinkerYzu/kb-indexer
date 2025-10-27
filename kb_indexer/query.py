@@ -559,54 +559,6 @@ Your answer:"""
             words = re.findall(r'\b[a-zA-Z]{4,}\b', question)
             return list(set(words))[:5]
 
-    def _extract_title_from_file(self, filepath: str) -> str:
-        """
-        Extract title from markdown file.
-
-        Args:
-            filepath: Path to markdown file
-
-        Returns:
-            Title or filename
-        """
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if line.startswith('# '):
-                        return line[2:].strip()
-            return Path(filepath).stem
-        except Exception:
-            return Path(filepath).stem
-
-    def _extract_summary_from_file(self, filepath: str) -> str:
-        """
-        Extract summary from markdown file (first paragraph).
-
-        Args:
-            filepath: Path to markdown file
-
-        Returns:
-            Summary or empty string
-        """
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                content = f.read(500)  # Read first 500 chars
-                # Find first paragraph after title
-                lines = content.split('\n')
-                summary = []
-                found_content = False
-                for line in lines:
-                    line = line.strip()
-                    if not line or line.startswith('#'):
-                        continue
-                    found_content = True
-                    summary.append(line)
-                    if len(' '.join(summary)) > 200:
-                        break
-                return ' '.join(summary)[:200]
-        except Exception:
-            return ""
-
     def _needs_reindexing(self, filepath: str, doc: Dict) -> bool:
         """
         Check if a document needs reindexing based on file modification time.
