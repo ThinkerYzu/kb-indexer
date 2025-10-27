@@ -497,10 +497,8 @@ Your answer:"""
                     summary = doc.get("summary", "")
                     was_indexed = False  # Mark as newly indexed
                 else:
-                    # Failed to index, use basic info
-                    keyword_list = []
-                    title = self._extract_title_from_file(filepath)
-                    summary = self._extract_summary_from_file(filepath)
+                    # Failed to index, skip this document
+                    continue
 
             is_relevant, score, reasoning = self.score_document_relevance(
                 question=question,
@@ -677,20 +675,34 @@ Your answer:"""
             except Exception:
                 return False
 
-            # Generate keywords using LLM
-            query_kw_hint = ""
+            # Generate keywords using LLM with the same approach as generate_keywords.py
+            query_kw_section = ""
             if query_keywords:
-                query_kw_hint = f"\nQuery keywords that led to this document: {', '.join(query_keywords)}\nConsider including relevant variations or related terms."
+                query_kw_section = f"""
+QUERY CONTEXT:
+These query keywords led to finding this document: {', '.join(query_keywords)}
+Consider including relevant variations or related terms in your keyword extraction.
 
-            prompt = f"""Extract 5-10 relevant keywords from this document.
+"""
 
-Title: {title}
-Summary: {summary}
-Content preview:
-{content}{query_kw_hint}
+            prompt = f"""You are a metadata extraction assistant. Analyze this markdown document and extract keywords.
+
+{query_kw_section}TASK: Generate keywords following this process:
+1. FIRST, think about 5-10 questions that people might ask that this document can answer
+   - Questions should be natural, as users would phrase them
+   - Think about what problems or needs would lead someone to this document
+
+2. THEN, generate keywords based on what terms users asking those questions might search for
+   - Extract 10-20 keywords total
+   - Include terms from the questions and document content
+   - Include both specific terms and general concepts
+   - Use lowercase for keywords unless they are proper nouns or abbreviations
 
 Return ONLY a JSON array of keywords, nothing else.
 Example: ["keyword1", "keyword2", "keyword3"]
+
+DOCUMENT CONTENT:
+{content}
 
 Your answer:"""
 
@@ -799,23 +811,36 @@ Your answer:"""
                 }
 
             # Generate updated keywords using LLM
-            query_kw_hint = ""
+            query_kw_section = ""
             if query_keywords:
-                query_kw_hint = f"\nQuery keywords to consider: {', '.join(query_keywords)}"
+                query_kw_section = f"""
+QUERY CONTEXT:
+These query keywords led to finding this document: {', '.join(query_keywords)}
+Consider including relevant variations or related terms.
 
-            prompt = f"""Analyze this updated document and generate an improved keyword list.
+"""
 
-Title: {title}
-Summary: {summary}
-Content preview:
-{content}
+            prompt = f"""You are a metadata extraction assistant. Analyze this updated document and intelligently update its keyword list.
 
-Existing keywords: {', '.join(existing_keywords)}{query_kw_hint}
+EXISTING KEYWORDS:
+{', '.join(existing_keywords)}
 
-Task: Generate an updated keyword list by:
-1. KEEPING existing keywords that are still relevant to the document
-2. ADDING new keywords for content that's new or wasn't captured before
-3. REMOVING existing keywords that are no longer relevant
+{query_kw_section}TASK: Generate an updated keyword list following this process:
+1. FIRST, think about 5-10 questions that people might ask that this document can answer
+   - Questions should be natural, as users would phrase them
+   - Think about what problems or needs would lead someone to this document
+
+2. THEN, decide which keywords to keep, add, or remove:
+   - KEEP: Existing keywords that are still relevant to the document
+   - ADD: New keywords based on what terms users asking those questions might search for
+   - REMOVE: Existing keywords that are no longer relevant
+
+Guidelines for keywords:
+- Extract 10-20 keywords total (after keep/add/remove)
+- Include terms from potential questions and document content
+- Include both specific terms and general concepts
+- Use lowercase for keywords unless they are proper nouns or abbreviations
+- Be conservative with removals - only remove if clearly no longer relevant
 
 Return a JSON object with three arrays:
 {{
@@ -824,11 +849,8 @@ Return a JSON object with three arrays:
   "remove": ["keyword5"]                // Existing keywords to remove
 }}
 
-Guidelines:
-- Be conservative with removals - only remove if clearly no longer relevant
-- Add keywords for significant new concepts or topics
-- Keep the total keyword count between 5-15
-- All keywords should be lowercase, 1-3 words
+DOCUMENT CONTENT:
+{content}
 
 Your answer (JSON only):"""
 
