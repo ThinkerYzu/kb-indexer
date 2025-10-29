@@ -428,10 +428,7 @@ Your answer:"""
         Returns:
             List of relevant documents found via grep
         """
-        # Extract search terms from question using LLM
-        terms = self._extract_search_terms(question, context)
-
-        if not terms:
+        if not query_keywords:
             return []
 
         # Find all markdown files in knowledge base
@@ -440,7 +437,7 @@ Your answer:"""
 
         # Use grep to search for terms
         all_matches = set()
-        for term in terms:
+        for term in query_keywords:
             try:
                 # Use grep -l to list files containing the term
                 result = subprocess.run(
@@ -472,8 +469,7 @@ Your answer:"""
             if doc:
                 # Already indexed - check if needs reindexing
                 reindex_result = self.reindex_document_if_modified(
-                    filepath=str(rel_path),
-                    query_keywords=query_keywords
+                    filepath=str(rel_path)
                 )
 
                 if reindex_result["status"] == "reindexed":
@@ -488,7 +484,7 @@ Your answer:"""
                 summary = doc.get("summary", "")
             else:
                 # Not indexed - auto-index it with query keywords
-                if self.auto_index_document(str(rel_path), query_keywords=query_keywords):
+                if self.auto_index_document(str(rel_path)):
                     # Successfully indexed, get the info
                     doc = self.db.get_document(str(rel_path))
                     doc_keywords = self.db.get_document_keywords(str(rel_path))
@@ -525,39 +521,6 @@ Your answer:"""
         # Sort by relevance score and limit results
         scored_results.sort(key=lambda x: x["relevance_score"], reverse=True)
         return scored_results[:max_results]
-
-    def _extract_search_terms(self, question: str, context: str) -> List[str]:
-        """
-        Extract key search terms from question using LLM.
-
-        Args:
-            question: User's question
-            context: User's context
-
-        Returns:
-            List of search terms
-        """
-        prompt = f"""Extract 3-5 key search terms from this question that would be good for grep searching.
-
-Question: {question}
-Context: {context}
-
-Return ONLY the search terms, one per line, without explanations.
-Focus on distinctive technical terms, concepts, or phrases.
-
-Your answer:"""
-
-        try:
-            answer = self._call_llm(prompt)
-            terms = [line.strip() for line in answer.split('\n') if line.strip()]
-            # Remove common words and duplicates
-            terms = [t for t in terms if len(t) > 2]
-            return list(set(terms))[:5]
-        except Exception as e:
-            print(f"Warning: Term extraction failed: {e}")
-            # Fallback: extract words from question
-            words = re.findall(r'\b[a-zA-Z]{4,}\b', question)
-            return list(set(words))[:5]
 
     def _needs_reindexing(self, filepath: str, doc: Dict) -> bool:
         """
@@ -601,13 +564,12 @@ Your answer:"""
             print(f"Warning: Could not check if {filepath} needs reindexing: {e}")
             return False
 
-    def auto_index_document(self, filepath: str, query_keywords: Optional[List[str]] = None) -> bool:
+    def auto_index_document(self, filepath: str) -> bool:
         """
         Automatically index an unindexed document by generating keywords.
 
         Args:
             filepath: Relative path to the document (e.g., "doc.md")
-            query_keywords: Optional query keywords to include in the index
 
         Returns:
             True if successfully indexed, False otherwise
@@ -623,19 +585,9 @@ Your answer:"""
             except Exception:
                 return False
 
-            # Generate title, summary, and keywords using LLM (same approach as generate_keywords.py)
-            query_kw_section = ""
-            if query_keywords:
-                query_kw_section = f"""
-QUERY CONTEXT:
-These query keywords led to finding this document: {', '.join(query_keywords)}
-Consider including relevant variations or related terms in your keyword extraction.
-
-"""
-
             prompt = f"""You are a metadata extraction assistant. Analyze this markdown document and extract metadata.
 
-{query_kw_section}TASK: Generate metadata following this process:
+TASK: Generate metadata following this process:
 1. FIRST, think about 5-10 questions that people might ask that this document can answer
    - Questions should be natural, as users would phrase them
    - Think about what problems or needs would lead someone to this document
@@ -694,14 +646,6 @@ Your answer (JSON only):"""
             for keyword in keywords:
                 self.db.add_document_keyword(filepath, keyword)
 
-            # Add query keywords if provided (these led to finding the document)
-            if query_keywords:
-                for kw in query_keywords:
-                    normalized = self.db._normalize_keyword(kw)
-                    # Only add if not already in keywords
-                    if normalized not in [self.db._normalize_keyword(k) for k in keywords]:
-                        self.db.add_document_keyword(filepath, kw)
-
             return True
 
         except Exception as e:
@@ -710,8 +654,7 @@ Your answer (JSON only):"""
 
     def reindex_document_if_modified(
         self,
-        filepath: str,
-        query_keywords: Optional[List[str]] = None
+        filepath: str
     ) -> Dict:
         """
         Reindex a document if it has been modified since last indexing.
@@ -719,7 +662,6 @@ Your answer (JSON only):"""
 
         Args:
             filepath: Relative path to the document (e.g., "doc.md")
-            query_keywords: Optional query keywords to consider when reindexing
 
         Returns:
             Dictionary with reindexing status:
@@ -763,22 +705,12 @@ Your answer (JSON only):"""
                     "message": f"Could not read file: {e}"
                 }
 
-            # Generate updated metadata using LLM
-            query_kw_section = ""
-            if query_keywords:
-                query_kw_section = f"""
-QUERY CONTEXT:
-These query keywords led to finding this document: {', '.join(query_keywords)}
-Consider including relevant variations or related terms.
-
-"""
-
             prompt = f"""You are a metadata extraction assistant. Analyze this updated document and intelligently update its metadata.
 
 EXISTING KEYWORDS:
 {', '.join(existing_keywords)}
 
-{query_kw_section}TASK: Generate updated metadata following this process:
+TASK: Generate updated metadata following this process:
 1. FIRST, think about 5-10 questions that people might ask that this document can answer
    - Questions should be natural, as users would phrase them
    - Think about what problems or needs would lead someone to this document
@@ -826,19 +758,16 @@ Your answer (JSON only):"""
                     remove = metadata.get("remove", [])
                 else:
                     # Fallback: keep all existing, add query keywords
-                    title = ""
-                    summary = ""
-                    keep = existing_keywords
-                    add = query_keywords or []
-                    remove = []
+                    return {
+                        "status": "error",
+                        "message": f"LLM metadata generation failed"
+                    }
             except Exception as e:
                 print(f"Warning: LLM metadata generation failed: {e}")
-                # Fallback: keep all existing
-                title = ""
-                summary = ""
-                keep = existing_keywords
-                add = query_keywords or []
-                remove = []
+                return {
+                    "status": "error",
+                    "message": f"LLM metadata generation failed: {e}"
+                }
 
             # Compute final keyword list
             final_keywords = list(set(keep + add))
