@@ -1094,7 +1094,7 @@ Your answer (JSON only):"""
         # This means the index needs improvement
         suggestions = {}
         applied = None
-        if enable_learning and len(keyword_results) == 0 and len(grep_results) > 0:
+        if False and enable_learning and len(keyword_results) == 0 and len(grep_results) > 0:
             # Keyword search failed, but grep found relevant documents
             # Add query keywords to these documents or as similarities
             indexed_results = [r for r in grep_results if r.get("indexed", True)]
